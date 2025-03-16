@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flood Prediction System</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            padding-top: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        #map {
+            height: 500px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .card {
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        .prediction-result {
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .normal {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .moderate {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+        }
+        .high {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .station-marker {
+            cursor: pointer;
+        }
+        .weather-icon {
+            width: 50px;
+            height: 50px;
+        }
+        .input-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        /* Navigation buttons */
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .nav-button {
+            background-color: #2196F3;
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .nav-button:hover {
+            background-color: #0b7dda;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">Flood Prediction System</h1>
+        
+        <!-- Navigation Buttons -->
+        <div class="nav-buttons">
+            <a href="/" class="nav-button">Audio Classification</a>
+            <a href="/driverBehaviour" class="nav-button">Driver Behavior</a>
+            <a href="/roadsign" class="nav-button">Road Sign Detection</a>
+            <a href="/video" class="nav-button">Road Sign Video</a>
+            <a href="/driver_video" class="nav-button">Driver Behavior Video</a>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        Select River Station from Map
+                    </div>
+                    <div class="card-body">
+                        <div id="map"></div>
+                        <div class="mt-2 text-muted small">
+                            <i class="fas fa-info-circle"></i> Click directly on a station marker or anywhere on the map to find the nearest river station.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        Selected Location
+                    </div>
+                    <div class="card-body">
+                        <div id="selected-location">
+                            <p>No location selected. Please click on a station marker on the map.</p>
+                        </div>
+                        
+                        <div id="weather-data" style="display: none;">
+                            <h5 class="mt-3">Current Weather</h5>
+                            <div class="d-flex align-items-center">
+                                <img id="weather-icon" class="weather-icon" src="" alt="Weather icon">
+                                <div>
+                                    <p id="weather-description"></p>
+                                    <p>Temperature: <span id="weather-temp"></span>°C</p>
+                                    <p>Humidity: <span id="weather-humidity"></span>%</p>
+                                    <p>Rainfall: <span id="weather-rainfall"></span> mm</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header">
+                        Date Selection
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="month" class="form-label">Month</label>
+                            <select class="form-select" id="month">
+                                <option value="January">January</option>
+                                <option value="February">February</option>
+                                <option value="March">March</option>
+                                <option value="April">April</option>
+                                <option value="May">May</option>
+                                <option value="June">June</option>
+                                <option value="July">July</option>
+                                <option value="August">August</option>
+                                <option value="September">September</option>
+                                <option value="October">October</option>
+                                <option value="November">November</option>
+                                <option value="December">December</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="day" class="form-label">Day</label>
+                            <input type="number" class="form-control" id="day" min="1" max="31" value="{{ current_day }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="input-section">
+                    <h4>Rainfall and Water Level Data</h4>
+                    <p class="text-muted">Enter current rainfall and previous 5 days' data</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="current-rainfall" class="form-label">Current Day's Rainfall (mm)</label>
+                                <input type="number" class="form-control" id="current-rainfall" min="0" step="0.1" value="0">
+                                <button class="btn btn-sm btn-outline-primary mt-2" id="use-weather-data">Use Weather API Data</button>
+                            </div>
+                            
+                            <h5>Previous 5 Days' Rainfall (mm)</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label for="rainfall-1" class="form-label">Day -1</label>
+                                    <input type="number" class="form-control rainfall-prev" id="rainfall-1" min="0" step="0.1" value="0">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label for="rainfall-2" class="form-label">Day -2</label>
+                                    <input type="number" class="form-control rainfall-prev" id="rainfall-2" min="0" step="0.1" value="0">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label for="rainfall-3" class="form-label">Day -3</label>
+                                    <input type="number" class="form-control rainfall-prev" id="rainfall-3" min="0" step="0.1" value="0">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label for="rainfall-4" class="form-label">Day -4</label>
+                                    <input type="number" class="form-control rainfall-prev" id="rainfall-4" min="0" step="0.1" value="0">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label for="rainfall-5" class="form-label">Day -5</label>
+                                    <input type="number" class="form-control rainfall-prev" id="rainfall-5" min="0" step="0.1" value="0">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h5>Previous 5 Days' Water Levels (m)</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label for="water-level-1" class="form-label">Day -1</label>
+                                    <input type="number" class="form-control water-level-prev" id="water-level-1" min="0" step="0.1" value="3.0">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label for="water-level-2" class="form-label">Day -2</label>
+                                    <input type="number" class="form-control water-level-prev" id="water-level-2" min="0" step="0.1" value="3.0">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label for="water-level-3" class="form-label">Day -3</label>
+                                    <input type="number" class="form-control water-level-prev" id="water-level-3" min="0" step="0.1" value="3.0">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label for="water-level-4" class="form-label">Day -4</label>
+                                    <input type="number" class="form-control water-level-prev" id="water-level-4" min="0" step="0.1" value="3.0">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label for="water-level-5" class="form-label">Day -5</label>
+                                    <input type="number" class="form-control water-level-prev" id="water-level-5" min="0" step="0.1" value="3.0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <button id="predict-btn" class="btn btn-primary btn-lg" disabled>Predict Water Level</button>
+                    </div>
+                    
+                    <!-- Loading indicator -->
+                    <div id="loading" class="loading mt-3">
+                        <div class="loading-spinner"></div>
+                        <p class="mt-2">Processing prediction...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="prediction-result" class="prediction-result">
+            <h4>Prediction Result</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>River:</strong> <span id="result-river"></span></p>
+                    <p><strong>Station:</strong> <span id="result-station"></span></p>
+                    <p><strong>Date:</strong> <span id="result-date"></span></p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Predicted Water Level:</strong> <span id="result-level"></span> meters</p>
+                    <p><strong>Risk Level:</strong> <span id="result-risk"></span></p>
+                </div>
+            </div>
+            <div class="text-end mt-3">
+                <button id="export-btn" class="btn btn-outline-secondary">Export to CSV</button>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="footer text-center mt-5">
+            <div class="container">
+                <p>Flood Prediction System &copy; 2023 | Powered by Machine Learning</p>
+                <p class="text-muted">Model Accuracy: RMSE: 0.1764, R²: 0.9962</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+        // Parse data from Flask
+        const riversAndStations = JSON.parse('{{ rivers_and_stations|safe }}');
+        const stationCoordinates = JSON.parse('{{ station_coordinates|safe }}');
+        
+        // Global variables
+        let map;
+        let markers = {};
+        let selectedRiver = null;
+        let selectedStation = null;
+        let selectedCoordinates = null;
+        
+        // Initialize map
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set current month in dropdown
+            document.getElementById('month').value = '{{ current_month }}';
+            
+            // Initialize Leaflet map
+            map = L.map('map').setView([7.8731, 80.7718], 8); // Center on Sri Lanka
+            
+            // Add tile layer (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Add river station markers
+            addRiverStationMarkers();
+            
+            // Add click event to map for selecting any location
+            map.on('click', function(e) {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                
+                // Create temporary marker at clicked location
+                if (window.tempMarker) {
+                    map.removeLayer(window.tempMarker);
+                }
+                window.tempMarker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background-color: #ff7800; width: 10px; height: 10px; border-radius: 50%;"></div>`,
+                        iconSize: [10, 10],
+                        iconAnchor: [5, 5]
+                    })
+                }).addTo(map);
+                
+                // Find nearest river station
+                findNearestRiverStation(lat, lng);
+            });
+            
+            // Event listener for predict button
+            document.getElementById('predict-btn').addEventListener('click', predictWaterLevel);
+            
+            // Event listener for using weather data
+            document.getElementById('use-weather-data').addEventListener('click', function() {
+                if (selectedCoordinates) {
+                    const [lat, lon] = selectedCoordinates;
+                    fetchWeatherData(lat, lon);
+                } else {
+                    alert('Please select a station first');
+                }
+            });
+            
+            // Initialize day validation
+            validateDayInput();
+        });
+        
+        // Add river station markers to the map
+        function addRiverStationMarkers() {
+            for (const river in stationCoordinates) {
+                for (const station in stationCoordinates[river]) {
+                    const [lat, lon] = stationCoordinates[river][station];
+                    
+                    // Create marker
+                    const marker = createCustomMarker(river, station, [lat, lon]);
+                    marker.addTo(map);
+                    
+                    // Add click event
+                    marker.on('click', function() {
+                        selectStation(river, station, [lat, lon]);
+                    });
+                    
+                    // Store marker reference
+                    if (!markers[river]) {
+                        markers[river] = {};
+                    }
+                    markers[river][station] = marker;
+                }
+            }
+        }
+        
+        // Handle station selection
+        function selectStation(river, station, coordinates, distance = null) {
+            // Update selected values
+            selectedRiver = river;
+            selectedStation = station;
+            selectedCoordinates = coordinates;
+            
+            // Update UI
+            let locationHtml = `
+                <p><strong>River:</strong> ${river}</p>
+                <p><strong>Station:</strong> ${station}</p>
+                <p><strong>Coordinates:</strong> ${coordinates[0].toFixed(4)}, ${coordinates[1].toFixed(4)}</p>
+            `;
+            
+            // Add distance information if available
+            if (distance) {
+                locationHtml += `<p><strong>Distance:</strong> ${distance} km from selected point</p>`;
+            }
+            
+            document.getElementById('selected-location').innerHTML = locationHtml;
+            
+            // Enable predict button
+            document.getElementById('predict-btn').disabled = false;
+            
+            // Fetch weather data
+            fetchWeatherData(coordinates[0], coordinates[1]);
+        }
+        
+        // Fetch weather data from OpenWeather API
+        function fetchWeatherData(lat, lon) {
+            showLoading();
+            fetch(`/api/weather?lat=${lat}&lon=${lon}`)
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.error) {
+                        console.error('Weather API error:', data.error);
+                        return;
+                    }
+                    
+                    // Update UI with weather data
+                    document.getElementById('weather-data').style.display = 'block';
+                    document.getElementById('weather-description').textContent = data.current.description;
+                    document.getElementById('weather-temp').textContent = data.current.temp;
+                    document.getElementById('weather-humidity').textContent = data.current.humidity;
+                    document.getElementById('weather-rainfall').textContent = data.current.rainfall.toFixed(2);
+                    
+                    // Set weather icon
+                    const iconCode = data.current.icon || '01d'; // Default to clear sky if no icon
+                    document.getElementById('weather-icon').src = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+                    
+                    // Update current rainfall input
+                    document.getElementById('current-rainfall').value = data.current.rainfall.toFixed(2);
+                    
+                    // Optionally update previous rainfall inputs if available
+                    if (data.prev_rainfall && data.prev_rainfall.length === 5) {
+                        for (let i = 0; i < 5; i++) {
+                            document.getElementById(`rainfall-${i+1}`).value = data.prev_rainfall[i].toFixed(2);
+                        }
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('Error fetching weather data:', error);
+                });
+        }
+        
+        // Predict water level
+        function predictWaterLevel() {
+            // Get input values
+            const month = document.getElementById('month').value;
+            const day = parseInt(document.getElementById('day').value);
+            const currentRainfall = parseFloat(document.getElementById('current-rainfall').value);
+            
+            // Get previous rainfall values
+            const prevRainfall = [];
+            document.querySelectorAll('.rainfall-prev').forEach(input => {
+                prevRainfall.push(parseFloat(input.value));
+            });
+            
+            // Get previous water level values
+            const prevWaterLevels = [];
+            document.querySelectorAll('.water-level-prev').forEach(input => {
+                prevWaterLevels.push(parseFloat(input.value));
+            });
+            
+            // Prepare request data
+            const requestData = {
+                river_name: selectedRiver,
+                station_name: selectedStation,
+                month: month,
+                day: day,
+                rainfall: currentRainfall,
+                prev_rainfall: prevRainfall,
+                prev_water_levels: prevWaterLevels
+            };
+            
+            // Show loading indicator
+            showLoading();
+            
+            // Send prediction request
+            fetch('/api/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                hideLoading();
+                
+                if (data.error) {
+                    alert('Prediction error: ' + data.error);
+                    return;
+                }
+                
+                // Display prediction result
+                const resultElement = document.getElementById('prediction-result');
+                resultElement.style.display = 'block';
+                
+                // Update result values
+                document.getElementById('result-river').textContent = selectedRiver;
+                document.getElementById('result-station').textContent = selectedStation;
+                document.getElementById('result-date').textContent = formatDate(month, day);
+                document.getElementById('result-level').textContent = data.prediction;
+                document.getElementById('result-risk').textContent = data.risk_level;
+                
+                // Update result styling based on risk level
+                resultElement.className = 'prediction-result';
+                if (data.risk_level === 'HIGH') {
+                    resultElement.classList.add('high');
+                    document.getElementById('result-risk').innerHTML = '<strong class="text-danger">HIGH</strong>';
+                } else if (data.risk_level === 'MODERATE') {
+                    resultElement.classList.add('moderate');
+                    document.getElementById('result-risk').innerHTML = '<strong class="text-warning">MODERATE</strong>';
+                } else {
+                    resultElement.classList.add('normal');
+                    document.getElementById('result-risk').innerHTML = '<strong class="text-success">NORMAL</strong>';
+                }
+                
+                // Scroll to result
+                resultElement.scrollIntoView({ behavior: 'smooth' });
+            })
+            .catch(error => {
+                // Hide loading indicator
+                hideLoading();
+                console.error('Error making prediction:', error);
+                alert('Error making prediction. Please try again.');
+            });
+        }
+        
+        // Function to find the nearest river station to coordinates
+        function findNearestRiverStation(lat, lng) {
+            showLoading();
+            fetch(`/api/nearest-station?lat=${lat}&lng=${lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.error) {
+                        console.error('API error:', data.error);
+                        return;
+                    }
+                    
+                    // Update selected values with nearest station
+                    selectStation(data.river, data.station, [data.station_lat, data.station_lng], data.distance_km);
+                    
+                    // Create a line connecting the clicked point and the nearest station
+                    if (window.proximityLine) {
+                        map.removeLayer(window.proximityLine);
+                    }
+                    window.proximityLine = L.polyline([
+                        [lat, lng],
+                        [data.station_lat, data.station_lng]
+                    ], {
+                        color: 'red',
+                        dashArray: '5, 10',
+                        weight: 2
+                    }).addTo(map);
+                    
+                    // Focus on both points
+                    const bounds = L.latLngBounds([
+                        [lat, lng],
+                        [data.station_lat, data.station_lng]
+                    ]);
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                    
+                    // Highlight the nearest station marker
+                    for (const river in markers) {
+                        for (const station in markers[river]) {
+                            const marker = markers[river][station];
+                            // Reset icon for all markers
+                            marker.setIcon(L.icon({
+                                iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
+                                iconSize: [25, 41],
+                                iconAnchor: [12, 41],
+                                popupAnchor: [1, -34],
+                                shadowUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png',
+                                shadowSize: [41, 41]
+                            }));
+                            
+                            // Highlight the nearest station
+                            if (river === data.river && station === data.station) {
+                                marker.setIcon(L.icon({
+                                    iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png',
+                                    iconSize: [25, 41],
+                                    iconAnchor: [12, 41],
+                                    popupAnchor: [1, -34],
+                                    shadowUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png',
+                                    shadowSize: [41, 41]
+                                }));
+                                marker.openPopup();
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('Error finding nearest station:', error);
+                });
+        }
+    </script>
+</body>
+</html> 

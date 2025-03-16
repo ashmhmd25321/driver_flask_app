@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accident Audio Classification</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f7fc;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #ffffff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            padding: 2em;
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h1 {
+            font-size: 2em;
+            color: #4CAF50;
+            margin-bottom: 1em;
+        }
+
+        input[type="file"] {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            width: 100%;
+            border: 1px solid #ddd;
+            transition: 0.3s;
+        }
+
+        input[type="file"]:hover {
+            border-color: #4CAF50;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button.stop {
+            background-color: #f44336;
+        }
+
+        button.stop:hover {
+            background-color: #d32f2f;
+        }
+
+        button.record {
+            background-color: #e91e63;
+        }
+
+        button.record:hover {
+            background-color: #c2185b;
+        }
+
+        .result {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        .confidence {
+            margin-top: 10px;
+            font-size: 1em;
+            color: #666;
+        }
+
+        .audio-player {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .audio-player audio {
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        .error {
+            color: #ff4d4d;
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .nav-button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 0.9em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+
+        .nav-button:hover {
+            background-color: #0b7dda;
+        }
+
+        .recording-indicator {
+            display: none;
+            color: #e91e63;
+            font-weight: bold;
+            margin-top: 10px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .tab-container {
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #f1f1f1;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+
+        .tab.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 0 0 5px 5px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .record-controls {
+            margin: 15px 0;
+        }
+
+        .timer {
+            font-size: 1.2em;
+            margin: 10px 0;
+            color: #555;
+        }
+
+        .predictions-container {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+        }
+
+        .prediction-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        .prediction-item:last-child {
+            border-bottom: none;
+        }
+
+        .prediction-time {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .prediction-class {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .prediction-confidence {
+            color: #777;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Audio Classification</h1>
+
+        <div class="tab-container">
+            <div class="tab active" data-tab="upload">Upload Audio</div>
+            <div class="tab" data-tab="record">Record Audio</div>
+        </div>
+
+        <div id="upload-tab" class="tab-content active">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" name="audio_file" id="audioFileInput" accept=".wav, .mp3, .ogg, .m4a, .flac, .aac" required>
+                <div class="file-info">
+                    Supported formats: WAV, MP3, OGG, M4A, FLAC, AAC
+                </div>
+                <br>
+                <button type="submit">Upload and Predict</button>
+            </form>
+        </div>
+
+        <div id="record-tab" class="tab-content">
+            <div class="record-controls">
+                <button id="startRecording" class="record">Start Recording</button>
+                <button id="stopRecording" class="stop" disabled>Stop Recording</button>
+            </div>
+            <div class="recording-indicator" id="recordingIndicator">Recording in progress...</div>
+            <div class="timer" id="recordingTimer">00:00</div>
+            <div class="file-info">
+                Recording will be automatically analyzed every 5 seconds
+            </div>
+            <div class="predictions-container" id="livePredictions">
+                <div class="prediction-item">Live predictions will appear here...</div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="loading" id="loadingIndicator">
+            <div class="loading-spinner"></div>
+            <p>Processing audio...</p>
+        </div>
+
+        <!-- Audio Player -->
+        <div class="audio-player" id="audioPlayer" style="display: none;">
+            <audio id="audioPreview" controls>
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+
+        <!-- Result Section -->
+        <div class="result" id="result"></div>
+        <div class="confidence" id="confidence"></div>
+
+        <!-- Error Message -->
+        <div class="error" id="errorMessage"></div>
+
+        <!-- Navigation Button Container -->
+        <div style="margin-top: 30px; text-align: center;">
+            <a href="/driverBehaviour" class="nav-button">Driver Behavior Analysis</a>
+            <a href="/roadsign" class="nav-button" style="margin-left: 10px;">Road Sign Prediction</a>
+            <a href="/floodP" class="nav-button" style="margin-left: 10px;">Flood Prediction</a>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                // Add active class to clicked tab
+                this.classList.add('active');
+                
+                // Hide all tab contents
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                // Show the corresponding tab content
+                document.getElementById(this.getAttribute('data-tab') + '-tab').classList.add('active');
+                
+                // Reset UI elements when switching tabs
+                resetUI();
+            });
+        });
+
+        function resetUI() {
+            // Reset result displays
+            document.getElementById('result').textContent = '';
+            document.getElementById('confidence').textContent = '';
+            document.getElementById('errorMessage').textContent = '';
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('audioPlayer').style.display = 'none';
+            
+            // Reset recording if active
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                document.getElementById('recordingIndicator').style.display = 'none';
+                document.getElementById('startRecording').disabled = false;
+                document.getElementById('stopRecording').disabled = true;
+                clearInterval(timerInterval);
+                recordingTime = 0;
+                updateTimerDisplay();
+            }
+        }
+
+        // File upload functionality
+        const form = document.getElementById('uploadForm');
+        const resultDiv = document.getElementById('result');
+        const confidenceDiv = document.getElementById('confidence');
+        const errorMessage = document.getElementById('errorMessage');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const audioPreview = document.getElementById('audioPreview');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const audioFileInput = document.getElementById('audioFileInput');
+
+        // Display file name when selected
+        audioFileInput.addEventListener('change', function() {
+            const fileName = this.files[0]?.name;
+            if (fileName) {
+                // Reset previous results
+                resultDiv.textContent = '';
+                confidenceDiv.textContent = '';
+                errorMessage.textContent = '';
+                
+                // Show audio preview
+                const audioURL = URL.createObjectURL(this.files[0]);
+                audioPreview.src = audioURL;
+                audioPlayer.style.display = 'flex';
+            }
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            // Reset previous results
+            resultDiv.textContent = '';
+            confidenceDiv.textContent = '';
+            errorMessage.textContent = '';
+            
+            // Show loading indicator
+            loadingIndicator.style.display = 'block';
+            
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                // Hide loading indicator
+                loadingIndicator.style.display = 'none';
+
+                if (data.error) {
+                    errorMessage.textContent = `Error: ${data.error}`;
+                    audioPlayer.style.display = 'none'; // Hide audio player on error
+                } else if (data.message) {
+                    resultDiv.textContent = data.message;
+                    
+                    // Display confidence if available
+                    if (data.confidence) {
+                        confidenceDiv.textContent = `Confidence: ${data.confidence}`;
+                    }
+                    
+                    // Display audio player
+                    const file = formData.get('audio_file');
+                    const audioURL = URL.createObjectURL(file);
+                    audioPreview.src = audioURL;
+                    audioPlayer.style.display = 'flex';
+                } else {
+                    resultDiv.textContent = `Predicted Class: ${data.predicted_class}`;
+                    
+                    // Display confidence if available
+                    if (data.confidence) {
+                        confidenceDiv.textContent = `Confidence: ${data.confidence}`;
+                    }
+
+                    // Display audio player
+                    const file = formData.get('audio_file');
+                    const audioURL = URL.createObjectURL(file);
+                    audioPreview.src = audioURL;
+                    audioPlayer.style.display = 'flex';
+                }
+            } catch (error) {
+                // Hide loading indicator
+                loadingIndicator.style.display = 'none';
+                
+                errorMessage.textContent = `Error: ${error.message}`;
+                audioPlayer.style.display = 'none'; // Hide audio player on error
+            }
+        });
+
+        // Audio recording functionality
+        let mediaRecorder;
+        let audioChunks = [];
+        let recordingTime = 0;
+        let timerInterval;
+        let autoUploadInterval;
+        let stream;
+
+        const startRecordingBtn = document.getElementById('startRecording');
+        const stopRecordingBtn = document.getElementById('stopRecording');
+        const recordingIndicator = document.getElementById('recordingIndicator');
+        const recordingTimer = document.getElementById('recordingTimer');
+        const livePredictions = document.getElementById('livePredictions');
+
+        startRecordingBtn.addEventListener('click', startRecording);
+        stopRecordingBtn.addEventListener('click', stopRecording);
+
+        async function startRecording() {
+            try {
+                // Reset UI
+                resultDiv.textContent = '';
+                confidenceDiv.textContent = '';
+                errorMessage.textContent = '';
+                livePredictions.innerHTML = '<div class="prediction-item">Live predictions will appear here...</div>';
+                
+                // Request microphone access with specific audio constraints
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        channelCount: 1,
+                        sampleRate: 44100,
+                        sampleSize: 16,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
+                });
+                
+                // Create media recorder with specific MIME type
+                const options = { mimeType: 'audio/webm' };
+                mediaRecorder = new MediaRecorder(stream, options);
+                audioChunks = [];
+                
+                // Event handlers
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+                
+                // Start recording with 1 second chunks
+                mediaRecorder.start(1000);
+                
+                // Update UI
+                startRecordingBtn.disabled = true;
+                stopRecordingBtn.disabled = false;
+                recordingIndicator.style.display = 'block';
+                
+                // Start timer
+                recordingTime = 0;
+                updateTimerDisplay();
+                timerInterval = setInterval(() => {
+                    recordingTime++;
+                    updateTimerDisplay();
+                    
+                    // Every 5 seconds, process the audio
+                    if (recordingTime > 0 && recordingTime % 5 === 0) {
+                        processAudioChunk();
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                errorMessage.textContent = `Error accessing microphone: ${error.message}`;
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                
+                // Update UI
+                startRecordingBtn.disabled = false;
+                stopRecordingBtn.disabled = true;
+                recordingIndicator.style.display = 'none';
+                
+                // Stop timer
+                clearInterval(timerInterval);
+                
+                // Process final audio
+                mediaRecorder.onstop = () => {
+                    // Stop all tracks in the stream
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                    
+                    // Process the complete recording
+                    if (audioChunks.length > 0) {
+                        processCompleteRecording();
+                    }
+                };
+            }
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(recordingTime / 60).toString().padStart(2, '0');
+            const seconds = (recordingTime % 60).toString().padStart(2, '0');
+            recordingTimer.textContent = `${minutes}:${seconds}`;
+        }
+
+        async function processAudioChunk() {
+            // Create a copy of the current audio chunks
+            const currentChunks = [...audioChunks];
+            
+            if (currentChunks.length === 0) {
+                console.log("No audio chunks available yet");
+                return;
+            }
+            
+            try {
+                // Create a blob from the chunks
+                const audioBlob = new Blob(currentChunks, { type: 'audio/webm' });
+                
+                // Convert to WAV format using AudioContext
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const fileReader = new FileReader();
+                
+                fileReader.onload = async function() {
+                    try {
+                        // Decode the audio data
+                        const arrayBuffer = this.result;
+                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        
+                        // Convert to WAV
+                        const wavBlob = audioBufferToWav(audioBuffer);
+                        
+                        // Create a file from the blob
+                        const audioFile = new File([wavBlob], 'recording.wav', { type: 'audio/wav' });
+                        
+                        // Create form data
+                        const formData = new FormData();
+                        formData.append('audio_file', audioFile);
+                        
+                        // Send to server
+                        const response = await fetch('/predict', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        // Display prediction
+                        addLivePrediction(data);
+                    } catch (error) {
+                        console.error('Error processing audio:', error);
+                        addLivePrediction({ error: 'Error processing audio: ' + error.message });
+                    }
+                };
+                
+                fileReader.onerror = function() {
+                    console.error('Error reading file');
+                    addLivePrediction({ error: 'Error reading audio file' });
+                };
+                
+                fileReader.readAsArrayBuffer(audioBlob);
+            } catch (error) {
+                console.error('Error processing audio chunk:', error);
+                addLivePrediction({ error: 'Error processing audio chunk: ' + error.message });
+            }
+        }
+
+        async function processCompleteRecording() {
+            if (audioChunks.length === 0) {
+                errorMessage.textContent = "No audio recorded";
+                return;
+            }
+            
+            try {
+                // Show loading indicator
+                loadingIndicator.style.display = 'block';
+                
+                // Create a blob from all chunks
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                
+                // Convert to WAV format using AudioContext
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const fileReader = new FileReader();
+                
+                fileReader.onload = async function() {
+                    try {
+                        // Decode the audio data
+                        const arrayBuffer = this.result;
+                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        
+                        // Convert to WAV
+                        const wavBlob = audioBufferToWav(audioBuffer);
+                        
+                        // Create a URL for the blob for playback
+                        const audioURL = URL.createObjectURL(wavBlob);
+                        
+                        // Display in audio player
+                        audioPreview.src = audioURL;
+                        audioPlayer.style.display = 'flex';
+                        
+                        // Create a file from the blob
+                        const audioFile = new File([wavBlob], 'complete_recording.wav', { type: 'audio/wav' });
+                        
+                        // Create form data
+                        const formData = new FormData();
+                        formData.append('audio_file', audioFile);
+                        
+                        // Send to server
+                        const response = await fetch('/predict', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        // Hide loading indicator
+                        loadingIndicator.style.display = 'none';
+                        
+                        // Display result
+                        if (data.error) {
+                            errorMessage.textContent = `Error: ${data.error}`;
+                        } else if (data.message) {
+                            resultDiv.textContent = data.message;
+                            if (data.confidence) {
+                                confidenceDiv.textContent = `Confidence: ${data.confidence}`;
+                            }
+                        } else {
+                            resultDiv.textContent = `Final Prediction: ${data.predicted_class}`;
+                            if (data.confidence) {
+                                confidenceDiv.textContent = `Confidence: ${data.confidence}`;
+                            }
+                        }
+                    } catch (error) {
+                        // Hide loading indicator
+                        loadingIndicator.style.display = 'none';
+                        errorMessage.textContent = `Error processing audio: ${error.message}`;
+                    }
+                };
+                
+                fileReader.onerror = function() {
+                    // Hide loading indicator
+                    loadingIndicator.style.display = 'none';
+                    errorMessage.textContent = 'Error reading audio file';
+                };
+                
+                fileReader.readAsArrayBuffer(audioBlob);
+            } catch (error) {
+                // Hide loading indicator
+                loadingIndicator.style.display = 'none';
+                errorMessage.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        // Function to convert AudioBuffer to WAV format
+        function audioBufferToWav(buffer) {
+            const numOfChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const format = 1; // PCM
+            const bitDepth = 16;
+            
+            let result;
+            if (numOfChannels === 2) {
+                result = interleave(buffer.getChannelData(0), buffer.getChannelData(1));
+            } else {
+                result = buffer.getChannelData(0);
+            }
+            
+            return encodeWAV(result, format, sampleRate, numOfChannels, bitDepth);
+        }
+
+        function interleave(leftChannel, rightChannel) {
+            const length = leftChannel.length + rightChannel.length;
+            const result = new Float32Array(length);
+            
+            let inputIndex = 0;
+            for (let i = 0; i < length;) {
+                result[i++] = leftChannel[inputIndex];
+                result[i++] = rightChannel[inputIndex];
+                inputIndex++;
+            }
+            
+            return result;
+        }
+
+        function encodeWAV(samples, format, sampleRate, numChannels, bitDepth) {
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numChannels * bytesPerSample;
+            
+            const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+            const view = new DataView(buffer);
+            
+            // RIFF identifier
+            writeString(view, 0, 'RIFF');
+            // RIFF chunk length
+            view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+            // RIFF type
+            writeString(view, 8, 'WAVE');
+            // format chunk identifier
+            writeString(view, 12, 'fmt ');
+            // format chunk length
+            view.setUint32(16, 16, true);
+            // sample format (raw)
+            view.setUint16(20, format, true);
+            // channel count
+            view.setUint16(22, numChannels, true);
+            // sample rate
+            view.setUint32(24, sampleRate, true);
+            // byte rate (sample rate * block align)
+            view.setUint32(28, sampleRate * blockAlign, true);
+            // block align (channel count * bytes per sample)
+            view.setUint16(32, blockAlign, true);
+            // bits per sample
+            view.setUint16(34, bitDepth, true);
+            // data chunk identifier
+            writeString(view, 36, 'data');
+            // data chunk length
+            view.setUint32(40, samples.length * bytesPerSample, true);
+            
+            // Write the PCM samples
+            const offset = 44;
+            if (bitDepth === 16) {
+                floatTo16BitPCM(view, offset, samples);
+            } else {
+                floatTo8BitPCM(view, offset, samples);
+            }
+            
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        function floatTo16BitPCM(output, offset, input) {
+            for (let i = 0; i < input.length; i++, offset += 2) {
+                const s = Math.max(-1, Math.min(1, input[i]));
+                output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+        }
+
+        function floatTo8BitPCM(output, offset, input) {
+            for (let i = 0; i < input.length; i++, offset++) {
+                const s = Math.max(-1, Math.min(1, input[i]));
+                const val = s < 0 ? s * 0x80 : s * 0x7F;
+                output.setInt8(offset, val + 128);
+            }
+        }
+
+        function addLivePrediction(data) {
+            // Create timestamp
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            
+            // Create prediction item
+            const predictionItem = document.createElement('div');
+            predictionItem.className = 'prediction-item';
+            
+            // Add content based on response
+            if (data.error) {
+                predictionItem.innerHTML = `
+                    <span class="prediction-time">${timeString}</span>: 
+                    <span class="prediction-error">Error: ${data.error}</span>
+                `;
+            } else if (data.message) {
+                predictionItem.innerHTML = `
+                    <span class="prediction-time">${timeString}</span>: 
+                    <span class="prediction-message">${data.message}</span>
+                    ${data.confidence ? `<div class="prediction-confidence">${data.confidence}</div>` : ''}
+                `;
+            } else {
+                predictionItem.innerHTML = `
+                    <span class="prediction-time">${timeString}</span>: 
+                    <span class="prediction-class">${data.predicted_class}</span>
+                    ${data.confidence ? `<div class="prediction-confidence">${data.confidence}</div>` : ''}
+                `;
+            }
+            
+            // Clear initial message if it's the first prediction
+            if (livePredictions.querySelector('.prediction-item').textContent.includes('Live predictions will appear here')) {
+                livePredictions.innerHTML = '';
+            }
+            
+            // Add to container
+            livePredictions.prepend(predictionItem);
+        }
+    </script>
+</body>
+</html>

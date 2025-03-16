@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Road Sign Prediction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 20px auto;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0); /* Fallback color */
+            background-color: rgba(0,0,0,0.4); /* Black with opacity */
+            padding-top: 60px;
+        }
+
+        /* Modal Content */
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 8px;
+        }
+
+        /* Close Button */
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Image Preview */
+        #imagePreview {
+            display: block;
+            margin: 20px auto;
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+        
+        /* Video Link */
+        .video-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #2196F3;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .video-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Navigation Buttons */
+        .nav-buttons {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .nav-button {
+            background-color: #2196F3;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            margin: 0 10px;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .nav-button:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Road Sign Prediction</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="imageFile" name="image" accept="image/*" required>
+        <img id="imagePreview" src="" alt="Image Preview" style="display: none;">
+        <button type="submit">Upload and Predict</button>
+    </form>
+    
+    <div class="nav-buttons">
+        <a href="/" class="nav-button">Audio Classification</a>
+        <a href="/driverBehaviour" class="nav-button">Driver Behavior</a>
+        <a href="/video" class="nav-button">Real-time Video Detection</a>
+        <a href="/floodP" class="nav-button">Flood Prediction</a>
+    </div>
+</div>
+
+<div id="predictionModal" class="modal">
+    <div class="modal-content">
+        <span class="close" id="closeModal">&times;</span>
+        <h2>Prediction Result</h2>
+        <p id="predictionText"></p>
+    </div>
+</div>
+
+<script>
+    // preview before submitting
+    document.getElementById("imageFile").addEventListener("change", function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgElement = document.getElementById("imagePreview");
+                imgElement.style.display = "block";
+                imgElement.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    document.getElementById("uploadForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        
+        const formData = new FormData();
+        const fileInput = document.getElementById("imageFile");
+        
+        formData.append("image", fileInput.files[0]);
+
+        // POST request to the Flask API
+        fetch("/predictRS", {
+            method: "POST",
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.prediction) {
+                document.getElementById("predictionText").innerHTML = `Predicted Road Sign: <strong>${data.prediction}</strong> (Confidence: ${data.confidence})`;
+                document.getElementById("predictionModal").style.display = "block";
+            } else if (data.message) {
+                document.getElementById("predictionText").innerHTML = `${data.message} (Confidence: ${data.confidence})`;
+                document.getElementById("predictionModal").style.display = "block";
+            } else if (data.error) {
+                document.getElementById("predictionText").innerHTML = `Error: ${data.error}`;
+                document.getElementById("predictionModal").style.display = "block";
+            }
+        })
+        .catch(error => {
+            document.getElementById("predictionText").innerHTML = `Error: ${error}`;
+            document.getElementById("predictionModal").style.display = "block";
+        });
+    });
+
+    document.getElementById("closeModal").addEventListener("click", function() {
+        document.getElementById("predictionModal").style.display = "none";
+    });
+
+    window.onclick = function(event) {
+        if (event.target === document.getElementById("predictionModal")) {
+            document.getElementById("predictionModal").style.display = "none";
+        }
+    };
+</script>
+
+</body>
+</html>

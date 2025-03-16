@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Behavior Prediction</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f7fb;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .file-upload-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .file-upload-section label {
+            font-size: 18px;
+            margin-bottom: 10px;
+            display: inline-block;
+            color: #555;
+        }
+
+        .file-upload-section input[type="file"] {
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #f1f1f1;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .file-upload-section button {
+            margin-top: 15px;
+            padding: 12px 30px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .file-upload-section button:hover {
+            background-color: #45a049;
+        }
+
+        .nav-button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: inline-block;
+            text-decoration: none;
+            margin-top: 20px;
+        }
+
+        .nav-button:hover {
+            background-color: #0b7dda;
+        }
+
+        .image-preview-container {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .image-preview-container img {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 20px;
+            width: 60%;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            float: right;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .prediction-result {
+            text-align: center;
+            font-size: 20px;
+            color: #333;
+        }
+
+        .prediction-result strong {
+            font-size: 24px;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Driver Behavior Prediction</h1>
+
+    <!-- Image Upload Form -->
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="file-upload-section">
+            <label for="imageFile">Upload an Image of Driver's Behavior:</label>
+            <input type="file" id="imageFile" name="image" accept="image/*" required>
+            <button type="submit">Upload and Predict</button>
+        </div>
+    </form>
+
+    <!-- Image Preview Section -->
+    <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
+        <h3>Preview of Uploaded Image</h3>
+        <img id="imagePreview" src="" alt="Image Preview">
+    </div>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="/" class="nav-button">Audio Classification</a>
+        <a href="/roadsign" class="nav-button" style="margin-left: 10px;">Road Sign Prediction</a>
+        <a href="/driver_video" class="nav-button" style="margin-left: 10px;">Real-time Driver Behavior</a>
+        <a href="/floodP" class="nav-button" style="margin-left: 10px;">Flood Prediction</a>
+    </div>
+</div>
+
+<!-- Modal for Prediction Result -->
+<div id="predictionModal" class="modal">
+    <div class="modal-content">
+        <span class="close" id="closeModal">&times;</span>
+        <h2>Prediction Result</h2>
+        <div class="prediction-result">
+            <p id="predictionText"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Handle file input change and preview the image
+    document.getElementById('imageFile').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imageUrl = e.target.result;
+                const imagePreview = document.getElementById('imagePreview');
+                const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+                
+                imagePreview.src = imageUrl;
+                imagePreviewContainer.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Handle form submission
+    document.getElementById("uploadForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        
+        const formData = new FormData();
+        const fileInput = document.getElementById("imageFile");
+        
+        formData.append("image", fileInput.files[0]);
+
+        // Send POST request to Flask API
+        fetch("/predictD", {
+            method: "POST",
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.prediction) {
+                document.getElementById("predictionText").innerHTML = `Predicted Behavior: <strong>${data.prediction}</strong> (Confidence: ${data.confidence})`;
+                document.getElementById("predictionModal").style.display = "block"; // Show modal
+            } else if (data.message) {
+                document.getElementById("predictionText").innerHTML = `${data.message} (Confidence: ${data.confidence})`;
+                document.getElementById("predictionModal").style.display = "block"; // Show modal
+            } else if (data.error) {
+                document.getElementById("predictionText").innerHTML = `Error: ${data.error}`;
+                document.getElementById("predictionModal").style.display = "block"; // Show modal
+            }
+        })
+        .catch(error => {
+            document.getElementById("predictionText").innerHTML = `Error: ${error}`;
+            document.getElementById("predictionModal").style.display = "block"; // Show modal
+        });
+    });
+
+    // Close the modal when the user clicks the "x"
+    document.getElementById("closeModal").addEventListener("click", function() {
+        document.getElementById("predictionModal").style.display = "none";
+    });
+
+    // Close the modal if the user clicks outside of the modal
+    window.onclick = function(event) {
+        if (event.target === document.getElementById("predictionModal")) {
+            document.getElementById("predictionModal").style.display = "none";
+        }
+    };
+</script>
+
+</body>
+</html>

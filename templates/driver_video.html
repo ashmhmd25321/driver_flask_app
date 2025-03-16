@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Driver Behavior Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background-color: #ddd;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 0 0 5px 5px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 20px auto;
+        }
+        .video-container {
+            width: 100%;
+            margin: 20px 0;
+            text-align: center;
+        }
+        #videoStream {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .nav-button {
+            background-color: #2196F3;
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Real-time Driver Behavior Detection</h1>
+    
+    <div class="tabs">
+        <div class="tab active" data-tab="webcam">Webcam</div>
+        <div class="tab" data-tab="upload">Upload Video</div>
+    </div>
+    
+    <div id="webcam-tab" class="tab-content active">
+        <p>Use your webcam for real-time driver behavior detection.</p>
+        <div class="video-container">
+            <img id="webcamStream" src="{{ url_for('driver_video_feed') }}" alt="Video Stream" width="640">
+        </div>
+    </div>
+    
+    <div id="upload-tab" class="tab-content">
+        <p>Upload a video file for driver behavior detection.</p>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="videoFile" name="video" accept="video/*" required>
+            <input type="hidden" name="model_type" value="driver_behavior">
+            <button type="submit">Upload and Process</button>
+        </form>
+        <div class="video-container" id="uploadedVideoContainer" style="display: none;">
+            <img id="uploadedVideoStream" src="" alt="Video Stream" width="640">
+            <button id="switchToWebcam" style="margin-top: 10px; background-color: #2196F3;">Switch to Webcam</button>
+        </div>
+    </div>
+    
+    <div class="nav-buttons">
+        <a href="/driverBehaviour" class="nav-button">Driver Behavior Image Upload</a>
+        <a href="/" class="nav-button">Audio Classification</a>
+        <a href="/roadsign" class="nav-button">Road Sign Detection</a>
+        <a href="/video" class="nav-button">Road Sign Video</a>
+        <a href="/floodP" class="nav-button">Flood Prediction</a>
+    </div>
+</div>
+
+<script>
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            // Add active class to clicked tab
+            this.classList.add('active');
+            
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            // Show the corresponding tab content
+            document.getElementById(this.dataset.tab + '-tab').classList.add('active');
+        });
+    });
+    
+    // Video upload form submission
+    document.getElementById('uploadForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        const formData = new FormData();
+        const fileInput = document.getElementById('videoFile');
+        
+        if (fileInput.files.length === 0) {
+            alert('Please select a video file');
+            return;
+        }
+        
+        formData.append('video', fileInput.files[0]);
+        formData.append('model_type', 'driver_behavior');
+        
+        // Show loading state
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.textContent;
+        submitButton.textContent = 'Processing...';
+        submitButton.disabled = true;
+        
+        // POST request to upload video
+        fetch('/upload_video', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Reset button
+            submitButton.textContent = originalButtonText;
+            submitButton.disabled = false;
+            
+            if (data.success) {
+                // Show the video stream
+                document.getElementById('uploadedVideoContainer').style.display = 'block';
+                document.getElementById('uploadedVideoStream').src = data.video_feed_url + '?' + new Date().getTime();
+            } else if (data.error) {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            // Reset button
+            submitButton.textContent = originalButtonText;
+            submitButton.disabled = false;
+            
+            alert('Error: ' + error);
+        });
+    });
+    
+    // Switch to webcam button
+    document.getElementById('switchToWebcam').addEventListener('click', function() {
+        fetch('/use_webcam?model_type=driver_behavior')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Switch to webcam tab
+                    document.querySelector('.tab[data-tab="webcam"]').click();
+                    // Refresh the webcam stream
+                    document.getElementById('webcamStream').src = data.video_feed_url + '?' + new Date().getTime();
+                } else if (data.error) {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error);
+            });
+    });
+</script>
+
+</body>
+</html> 
