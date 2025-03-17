@@ -4,141 +4,275 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Driver Behavior Prediction</title>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f4f7fb;
+        :root {
+            --primary-color: #4285F4;
+            --secondary-color: #34A853;
+            --danger-color: #EA4335;
+            --warning-color: #FBBC05;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7fc;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
         .container {
             max-width: 700px;
-            margin: 50px auto;
-            padding: 20px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 30px;
             background-color: #fff;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
+            box-shadow: var(--box-shadow);
+            border-radius: var(--border-radius);
         }
 
         h1 {
             text-align: center;
-            color: #333;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            position: relative;
+            padding-bottom: 10px;
         }
 
-        .file-upload-section {
-            text-align: center;
-            margin-bottom: 20px;
+        h1:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background-color: var(--secondary-color);
+            border-radius: 3px;
         }
 
-        .file-upload-section label {
-            font-size: 18px;
-            margin-bottom: 10px;
-            display: inline-block;
-            color: #555;
+        .file-upload {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px 0;
         }
 
-        .file-upload-section input[type="file"] {
-            margin-top: 10px;
-            padding: 10px;
-            font-size: 16px;
-            background-color: #f1f1f1;
-            border: 2px solid #ddd;
-            border-radius: 5px;
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 15px;
+            background-color: var(--light-color);
+            border: 2px dashed #ccc;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
         }
 
-        .file-upload-section button {
-            margin-top: 15px;
-            padding: 12px 30px;
-            font-size: 18px;
-            background-color: #4CAF50;
+        .file-upload-label:hover {
+            border-color: var(--primary-color);
+            background-color: #e9f0fe;
+        }
+
+        .file-upload-label i {
+            font-size: 24px;
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+
+        .file-upload input[type="file"] {
+            position: absolute;
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            background-color: var(--secondary-color);
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: var(--border-radius);
             cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .file-upload-section button:hover {
-            background-color: #45a049;
-        }
-
-        .nav-button {
-            background-color: #2196F3;
-            color: white;
-            border: none;
-            padding: 10px 15px;
             font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            display: inline-block;
-            text-decoration: none;
-            margin-top: 20px;
+            font-weight: 500;
+            transition: var(--transition);
+            margin: 20px auto;
+            width: 100%;
+            max-width: 300px;
         }
 
-        .nav-button:hover {
-            background-color: #0b7dda;
+        .btn i {
+            margin-right: 8px;
+        }
+
+        .btn:hover {
+            background-color: #2d9249;
+            transform: translateY(-2px);
         }
 
         .image-preview-container {
-            margin-top: 30px;
+            margin: 30px 0;
             text-align: center;
+            display: none;
+        }
+
+        .image-preview-container h3 {
+            margin-bottom: 15px;
+            color: var(--dark-color);
+            font-weight: 500;
         }
 
         .image-preview-container img {
             max-width: 100%;
             max-height: 400px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
         }
 
         /* Modal styles */
         .modal {
             display: none;
             position: fixed;
-            z-index: 1;
+            z-index: 1000;
             left: 0;
             top: 0;
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
             padding-top: 60px;
+            transition: var(--transition);
         }
 
         .modal-content {
             background-color: #fff;
-            margin: 10% auto;
-            padding: 20px;
-            width: 60%;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            margin: 5% auto;
+            padding: 30px;
+            width: 80%;
+            max-width: 500px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            position: relative;
+            animation: modalFadeIn 0.3s;
+        }
+
+        @keyframes modalFadeIn {
+            from {opacity: 0; transform: translateY(-20px);}
+            to {opacity: 1; transform: translateY(0);}
         }
 
         .close {
+            position: absolute;
+            right: 20px;
+            top: 15px;
             color: #aaa;
             font-size: 28px;
             font-weight: bold;
-            float: right;
-            cursor: pointer;
+            transition: var(--transition);
         }
 
         .close:hover,
         .close:focus {
-            color: black;
+            color: var(--danger-color);
             text-decoration: none;
             cursor: pointer;
         }
 
         .prediction-result {
             text-align: center;
-            font-size: 20px;
-            color: #333;
+            font-size: 18px;
+            color: var(--dark-color);
+            margin-top: 20px;
         }
 
-        .prediction-result strong {
+        .prediction-behavior {
             font-size: 24px;
-            color: #4CAF50;
+            color: var(--secondary-color);
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .prediction-confidence {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .nav-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .nav-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9em;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .nav-button:hover {
+            background-color: #3367d6;
+            transform: translateY(-2px);
+        }
+
+        .nav-button i {
+            margin-right: 8px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+            }
+
+            .nav-button {
+                width: 100%;
+                margin: 5px 0;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
         }
     </style>
 </head>
@@ -149,24 +283,40 @@
 
     <!-- Image Upload Form -->
     <form id="uploadForm" enctype="multipart/form-data">
-        <div class="file-upload-section">
-            <label for="imageFile">Upload an Image of Driver's Behavior:</label>
+        <div class="file-upload">
+            <label for="imageFile" class="file-upload-label">
+                <i class="fas fa-car-side"></i>
+                <span id="fileLabel">Upload an image of driver's behavior</span>
+            </label>
             <input type="file" id="imageFile" name="image" accept="image/*" required>
-            <button type="submit">Upload and Predict</button>
+        </div>
+        
+        <div style="text-align: center;">
+            <button type="submit" class="btn">
+                <i class="fas fa-cloud-upload-alt"></i> Upload and Predict
+            </button>
         </div>
     </form>
 
     <!-- Image Preview Section -->
-    <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
-        <h3>Preview of Uploaded Image</h3>
+    <div class="image-preview-container" id="imagePreviewContainer">
+        <h3><i class="fas fa-image"></i> Preview of Uploaded Image</h3>
         <img id="imagePreview" src="" alt="Image Preview">
     </div>
 
-    <div style="text-align: center; margin-top: 20px;">
-        <a href="/" class="nav-button">Audio Classification</a>
-        <a href="/roadsign" class="nav-button" style="margin-left: 10px;">Road Sign Prediction</a>
-        <a href="/driver_video" class="nav-button" style="margin-left: 10px;">Real-time Driver Behavior</a>
-        <a href="/floodP" class="nav-button" style="margin-left: 10px;">Flood Prediction</a>
+    <div class="nav-buttons">
+        <a href="/" class="nav-button">
+            <i class="fas fa-headphones"></i> Audio Classification
+        </a>
+        <a href="/roadsign" class="nav-button">
+            <i class="fas fa-road"></i> Road Sign Prediction
+        </a>
+        <a href="/driver_video" class="nav-button">
+            <i class="fas fa-video"></i> Real-time Driver Behavior
+        </a>
+        <a href="/floodP" class="nav-button">
+            <i class="fas fa-water"></i> Flood Prediction
+        </a>
     </div>
 </div>
 
@@ -174,8 +324,8 @@
 <div id="predictionModal" class="modal">
     <div class="modal-content">
         <span class="close" id="closeModal">&times;</span>
-        <h2>Prediction Result</h2>
-        <div class="prediction-result">
+        <h2 style="text-align: center; margin-bottom: 20px; color: var(--primary-color);">Prediction Result</h2>
+        <div class="prediction-result" id="predictionResult">
             <p id="predictionText"></p>
         </div>
     </div>
@@ -183,19 +333,27 @@
 
 <script>
     // Handle file input change and preview the image
-    document.getElementById('imageFile').addEventListener('change', function(event) {
+    const imageFile = document.getElementById('imageFile');
+    const fileLabel = document.getElementById('fileLabel');
+    const imagePreview = document.getElementById('imagePreview');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    
+    imageFile.addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (file) {
+            // Update file label
+            fileLabel.textContent = file.name;
+            
+            // Show image preview
             const reader = new FileReader();
             reader.onload = function(e) {
-                const imageUrl = e.target.result;
-                const imagePreview = document.getElementById('imagePreview');
-                const imagePreviewContainer = document.getElementById('imagePreviewContainer');
-                
-                imagePreview.src = imageUrl;
+                imagePreview.src = e.target.result;
                 imagePreviewContainer.style.display = 'block';
             };
             reader.readAsDataURL(file);
+        } else {
+            fileLabel.textContent = 'Upload an image of driver\'s behavior';
+            imagePreviewContainer.style.display = 'none';
         }
     });
 
@@ -206,7 +364,18 @@
         const formData = new FormData();
         const fileInput = document.getElementById("imageFile");
         
+        if (!fileInput.files[0]) {
+            alert("Please select an image file");
+            return;
+        }
+        
         formData.append("image", fileInput.files[0]);
+
+        // Show loading state
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        submitButton.disabled = true;
 
         // Send POST request to Flask API
         fetch("/predictD", {
@@ -215,20 +384,48 @@
         })
         .then(response => response.json())
         .then(data => {
+            // Reset button state
+            submitButton.innerHTML = originalButtonText;
+            submitButton.disabled = false;
+            
             if (data.prediction) {
-                document.getElementById("predictionText").innerHTML = `Predicted Behavior: <strong>${data.prediction}</strong> (Confidence: ${data.confidence})`;
-                document.getElementById("predictionModal").style.display = "block"; // Show modal
+                document.getElementById("predictionText").innerHTML = `
+                    <div class="prediction-behavior">
+                        <i class="fas fa-check-circle"></i> ${data.prediction}
+                    </div>
+                    <div class="prediction-confidence">
+                        Confidence: ${data.confidence}
+                    </div>
+                `;
+                document.getElementById("predictionModal").style.display = "block";
             } else if (data.message) {
-                document.getElementById("predictionText").innerHTML = `${data.message} (Confidence: ${data.confidence})`;
-                document.getElementById("predictionModal").style.display = "block"; // Show modal
+                document.getElementById("predictionText").innerHTML = `
+                    <div style="margin-bottom: 10px;">${data.message}</div>
+                    <div class="prediction-confidence">
+                        Confidence: ${data.confidence}
+                    </div>
+                `;
+                document.getElementById("predictionModal").style.display = "block";
             } else if (data.error) {
-                document.getElementById("predictionText").innerHTML = `Error: ${data.error}`;
-                document.getElementById("predictionModal").style.display = "block"; // Show modal
+                document.getElementById("predictionText").innerHTML = `
+                    <div style="color: var(--danger-color);">
+                        <i class="fas fa-exclamation-circle"></i> Error: ${data.error}
+                    </div>
+                `;
+                document.getElementById("predictionModal").style.display = "block";
             }
         })
         .catch(error => {
-            document.getElementById("predictionText").innerHTML = `Error: ${error}`;
-            document.getElementById("predictionModal").style.display = "block"; // Show modal
+            // Reset button state
+            submitButton.innerHTML = originalButtonText;
+            submitButton.disabled = false;
+            
+            document.getElementById("predictionText").innerHTML = `
+                <div style="color: var(--danger-color);">
+                    <i class="fas fa-exclamation-circle"></i> Error: ${error}
+                </div>
+            `;
+            document.getElementById("predictionModal").style.display = "block";
         });
     });
 

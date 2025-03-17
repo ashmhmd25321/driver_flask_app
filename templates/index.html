@@ -4,160 +4,251 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accident Audio Classification</title>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary-color: #4285F4;
+            --secondary-color: #34A853;
+            --danger-color: #EA4335;
+            --warning-color: #FBBC05;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f7fc;
             color: #333;
             margin: 0;
-            padding: 0;
+            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            box-sizing: border-box;
+            min-height: 100vh;
         }
 
         .container {
             background-color: #ffffff;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
+            box-shadow: var(--box-shadow);
+            border-radius: var(--border-radius);
             padding: 2em;
-            text-align: center;
             width: 100%;
-            max-width: 500px;
+            max-width: 600px;
+            position: relative;
         }
 
         h1 {
             font-size: 2em;
-            color: #4CAF50;
+            color: var(--primary-color);
             margin-bottom: 1em;
+            text-align: center;
+            position: relative;
+            padding-bottom: 10px;
         }
 
-        input[type="file"] {
-            background-color: #f9f9f9;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            width: 100%;
-            border: 1px solid #ddd;
-            transition: 0.3s;
+        h1:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background-color: var(--secondary-color);
+            border-radius: 3px;
         }
 
-        input[type="file"]:hover {
-            border-color: #4CAF50;
-        }
-
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            font-size: 1em;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin: 5px;
-        }
-
-        button:hover {
-            background-color: #45a049;
-        }
-
-        button.stop {
-            background-color: #f44336;
-        }
-
-        button.stop:hover {
-            background-color: #d32f2f;
-        }
-
-        button.record {
-            background-color: #e91e63;
-        }
-
-        button.record:hover {
-            background-color: #c2185b;
-        }
-
-        .result {
-            margin-top: 20px;
-            font-size: 1.2em;
-            color: #333;
-        }
-
-        .confidence {
-            margin-top: 10px;
-            font-size: 1em;
-            color: #666;
-        }
-
-        .audio-player {
-            margin-top: 20px;
+        .file-upload {
+            position: relative;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            margin: 20px 0;
         }
 
-        .audio-player audio {
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 100%;
-            border-radius: 8px;
+            padding: 15px;
+            background-color: var(--light-color);
+            border: 2px dashed #ccc;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
         }
 
-        .error {
-            color: #ff4d4d;
-            font-size: 1.2em;
-            margin-top: 20px;
+        .file-upload-label:hover {
+            border-color: var(--primary-color);
+            background-color: #e9f0fe;
+        }
+
+        .file-upload-label i {
+            font-size: 24px;
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+
+        .file-upload input[type="file"] {
+            position: absolute;
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            z-index: -1;
         }
 
         .file-info {
             margin-top: 10px;
             font-size: 0.9em;
             color: #666;
+            text-align: center;
         }
 
-        .loading {
-            display: none;
-            margin-top: 20px;
+        .btn-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
         }
 
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #4CAF50;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 2s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .nav-button {
-            background-color: #2196F3;
-            color: white;
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 20px;
             border: none;
-            padding: 10px 15px;
-            font-size: 0.9em;
-            border-radius: 5px;
+            border-radius: var(--border-radius);
+            font-size: 1em;
+            font-weight: 500;
             cursor: pointer;
-            transition: background-color 0.3s;
-            margin-top: 20px;
+            transition: var(--transition);
+            min-width: 120px;
         }
 
-        .nav-button:hover {
-            background-color: #0b7dda;
+        .btn i {
+            margin-right: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #3367d6;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #2d9249;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #d62516;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #e6a800;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            position: relative;
+            font-weight: 500;
+            color: #666;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+        }
+
+        .tab i {
+            margin-right: 8px;
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+        }
+
+        .tab.active:after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         .recording-indicator {
             display: none;
-            color: #e91e63;
+            color: var(--danger-color);
             font-weight: bold;
-            margin-top: 10px;
+            margin: 15px 0;
+            text-align: center;
             animation: blink 1s infinite;
+        }
+
+        .recording-indicator i {
+            margin-right: 8px;
+            font-size: 1.2em;
         }
 
         @keyframes blink {
@@ -166,43 +257,12 @@
             100% { opacity: 1; }
         }
 
-        .tab-container {
-            margin-bottom: 20px;
-        }
-
-        .tab {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #f1f1f1;
-            cursor: pointer;
-            border-radius: 5px 5px 0 0;
-            margin-right: 5px;
-        }
-
-        .tab.active {
-            background-color: #4CAF50;
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 0 0 5px 5px;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .record-controls {
-            margin: 15px 0;
-        }
-
         .timer {
-            font-size: 1.2em;
-            margin: 10px 0;
+            font-size: 1.5em;
+            margin: 15px 0;
             color: #555;
+            text-align: center;
+            font-weight: bold;
         }
 
         .predictions-container {
@@ -210,12 +270,13 @@
             max-height: 200px;
             overflow-y: auto;
             border: 1px solid #ddd;
-            border-radius: 5px;
+            border-radius: var(--border-radius);
             padding: 10px;
+            background-color: var(--light-color);
         }
 
         .prediction-item {
-            padding: 8px;
+            padding: 10px;
             border-bottom: 1px solid #eee;
             text-align: left;
         }
@@ -230,13 +291,129 @@
         }
 
         .prediction-class {
-            color: #4CAF50;
+            color: var(--secondary-color);
             font-weight: bold;
         }
 
         .prediction-confidence {
             color: #777;
             font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .prediction-error {
+            color: var(--danger-color);
+        }
+
+        .loading {
+            display: none;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .audio-player {
+            margin: 20px 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .audio-player audio {
+            width: 100%;
+            border-radius: var(--border-radius);
+            background-color: var(--light-color);
+        }
+
+        .result {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: var(--dark-color);
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .confidence {
+            margin-top: 10px;
+            font-size: 1em;
+            color: #666;
+            text-align: center;
+        }
+
+        .error {
+            color: var(--danger-color);
+            font-size: 1em;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .nav-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .nav-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 0.9em;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .nav-button:hover {
+            background-color: #3367d6;
+            transform: translateY(-2px);
+        }
+
+        .nav-button i {
+            margin-right: 8px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 1.5em;
+            }
+
+            .btn-container {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+            }
+
+            .nav-button {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -245,33 +422,54 @@
         <h1>Audio Classification</h1>
 
         <div class="tab-container">
-            <div class="tab active" data-tab="upload">Upload Audio</div>
-            <div class="tab" data-tab="record">Record Audio</div>
+            <div class="tab active" data-tab="upload">
+                <i class="fas fa-upload"></i> Upload Audio
+            </div>
+            <div class="tab" data-tab="record">
+                <i class="fas fa-microphone"></i> Record Audio
+            </div>
         </div>
 
         <div id="upload-tab" class="tab-content active">
             <form id="uploadForm" enctype="multipart/form-data">
-                <input type="file" name="audio_file" id="audioFileInput" accept=".wav, .mp3, .ogg, .m4a, .flac, .aac" required>
-                <div class="file-info">
-                    Supported formats: WAV, MP3, OGG, M4A, FLAC, AAC
+                <div class="file-upload">
+                    <label for="audioFileInput" class="file-upload-label">
+                        <i class="fas fa-file-audio"></i>
+                        <span id="fileLabel">Choose an audio file</span>
+                    </label>
+                    <input type="file" name="audio_file" id="audioFileInput" accept=".wav, .mp3, .ogg, .m4a, .flac, .aac" required>
+                    <div class="file-info">
+                        Supported formats: WAV, MP3, OGG, M4A, FLAC, AAC
+                    </div>
                 </div>
-                <br>
-                <button type="submit">Upload and Predict</button>
+                <div class="btn-container">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload and Predict
+                    </button>
+                </div>
             </form>
         </div>
 
         <div id="record-tab" class="tab-content">
-            <div class="record-controls">
-                <button id="startRecording" class="record">Start Recording</button>
-                <button id="stopRecording" class="stop" disabled>Stop Recording</button>
+            <div class="btn-container">
+                <button id="startRecording" class="btn btn-success">
+                    <i class="fas fa-microphone"></i> Start Recording
+                </button>
+                <button id="stopRecording" class="btn btn-danger" disabled>
+                    <i class="fas fa-stop-circle"></i> Stop Recording
+                </button>
             </div>
-            <div class="recording-indicator" id="recordingIndicator">Recording in progress...</div>
+            <div class="recording-indicator" id="recordingIndicator">
+                <i class="fas fa-circle"></i> Recording in progress...
+            </div>
             <div class="timer" id="recordingTimer">00:00</div>
             <div class="file-info">
-                Recording will be automatically analyzed every 5 seconds
+                <i class="fas fa-info-circle"></i> Recording will be automatically analyzed every 5 seconds
             </div>
             <div class="predictions-container" id="livePredictions">
-                <div class="prediction-item">Live predictions will appear here...</div>
+                <div class="prediction-item">
+                    <i class="fas fa-headphones"></i> Live predictions will appear here...
+                </div>
             </div>
         </div>
 
@@ -282,7 +480,7 @@
         </div>
 
         <!-- Audio Player -->
-        <div class="audio-player" id="audioPlayer" style="display: none;">
+        <div class="audio-player" id="audioPlayer">
             <audio id="audioPreview" controls>
                 Your browser does not support the audio element.
             </audio>
@@ -296,10 +494,16 @@
         <div class="error" id="errorMessage"></div>
 
         <!-- Navigation Button Container -->
-        <div style="margin-top: 30px; text-align: center;">
-            <a href="/driverBehaviour" class="nav-button">Driver Behavior Analysis</a>
-            <a href="/roadsign" class="nav-button" style="margin-left: 10px;">Road Sign Prediction</a>
-            <a href="/floodP" class="nav-button" style="margin-left: 10px;">Flood Prediction</a>
+        <div class="nav-buttons">
+            <a href="/driverBehaviour" class="nav-button">
+                <i class="fas fa-car"></i> Driver Behavior Analysis
+            </a>
+            <a href="/roadsign" class="nav-button">
+                <i class="fas fa-road"></i> Road Sign Prediction
+            </a>
+            <a href="/floodP" class="nav-button">
+                <i class="fas fa-water"></i> Flood Prediction
+            </a>
         </div>
     </div>
 
@@ -351,11 +555,15 @@
         const audioPreview = document.getElementById('audioPreview');
         const loadingIndicator = document.getElementById('loadingIndicator');
         const audioFileInput = document.getElementById('audioFileInput');
+        const fileLabel = document.getElementById('fileLabel');
 
         // Display file name when selected
         audioFileInput.addEventListener('change', function() {
             const fileName = this.files[0]?.name;
             if (fileName) {
+                // Update file label
+                fileLabel.textContent = fileName;
+                
                 // Reset previous results
                 resultDiv.textContent = '';
                 confidenceDiv.textContent = '';
@@ -365,6 +573,8 @@
                 const audioURL = URL.createObjectURL(this.files[0]);
                 audioPreview.src = audioURL;
                 audioPlayer.style.display = 'flex';
+            } else {
+                fileLabel.textContent = 'Choose an audio file';
             }
         });
 

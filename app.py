@@ -19,6 +19,8 @@ import json
 from threading import Lock
 import warnings
 from flask_cors import CORS
+import subprocess
+import sys
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -26,10 +28,70 @@ warnings.filterwarnings('ignore')
 # Get the absolute path to the application directory
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# Load the trained model
-model = tf.keras.models.load_model(os.path.join(APP_ROOT, 'audio_classification_model.h5'))
-model1 = load_model(os.path.join(APP_ROOT, 'vggModel_driver_behaviour.h5'), compile=False)
-model2 = load_model(os.path.join(APP_ROOT, 'vggModel.h5'), compile=False)
+# Define paths for models
+DRIVER_BEHAVIOR_MODEL_PATH = os.path.join(APP_ROOT, 'vggModel_driver_behaviour.h5')
+ROAD_SIGN_MODEL_PATH = os.path.join(APP_ROOT, 'vggModel.h5')
+AUDIO_MODEL_PATH = os.path.join(APP_ROOT, 'audio_classification_model.h5')
+LABEL_ENCODER_PATH = os.path.join(APP_ROOT, 'label_encoder.pkl')
+SCALER_PATH = os.path.join(APP_ROOT, 'scaler.pkl')
+
+# Function to download model from Google Drive
+def download_from_gdrive(file_id, destination):
+    """Download a file from Google Drive using gdown"""
+    if os.path.exists(destination):
+        print(f"File already exists: {destination}")
+        return True
+    
+    try:
+        # Check if gdown is installed
+        try:
+            import gdown
+        except ImportError:
+            print("Installing gdown...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "gdown"])
+            import gdown
+        
+        print(f"Downloading file from Google Drive to {destination}...")
+        url = f"https://drive.google.com/uc?id={file_id}"
+        gdown.download(url, destination, quiet=False)
+        
+        if os.path.exists(destination):
+            print(f"Successfully downloaded: {destination}")
+            return True
+        else:
+            print(f"Failed to download: {destination}")
+            return False
+    except Exception as e:
+        print(f"Error downloading file: {str(e)}")
+        return False
+
+# Download models if they don't exist
+if not os.path.exists(DRIVER_BEHAVIOR_MODEL_PATH):
+    print("Driver behavior model not found. Downloading from Google Drive...")
+    download_from_gdrive("1ZIyCdv4bkyOJ47S9lLiZqD6mnqGBFcIe", DRIVER_BEHAVIOR_MODEL_PATH)
+
+# Load the trained models
+print("Loading models...")
+try:
+    model = tf.keras.models.load_model(AUDIO_MODEL_PATH)
+    print("Audio model loaded successfully")
+except Exception as e:
+    print(f"Error loading audio model: {str(e)}")
+    model = None
+
+try:
+    model1 = load_model(DRIVER_BEHAVIOR_MODEL_PATH, compile=False)
+    print("Driver behavior model loaded successfully")
+except Exception as e:
+    print(f"Error loading driver behavior model: {str(e)}")
+    model1 = None
+
+try:
+    model2 = load_model(ROAD_SIGN_MODEL_PATH, compile=False)
+    print("Road sign model loaded successfully")
+except Exception as e:
+    print(f"Error loading road sign model: {str(e)}")
+    model2 = None
 
 class_names = [
     "safe driving",
@@ -54,61 +116,22 @@ class_names_sign = [
     "no u turn"
 ]
 
-
-def predict_signRS(image_path):
-    img = load_img(image_path, target_size=(150, 150, 3))
-    img = img_to_array(img)
-    img = img / 255.0
-    img = np.expand_dims(img, axis=0)
-
-    prediction = model2.predict(img)
-    predicted_class_index = np.argmax(prediction, axis=-1)[0]
-    result = class_names_sign[predicted_class_index]
-    return result
-
-
-# Function to predict from numpy array (for video frames)
-def predict_from_array(img_array, model_type='road_sign'):
-    if model_type == 'road_sign':
-        # Resize the image to match model input size
-        img = cv2.resize(img_array, (150, 150))
-        # Convert BGR to RGB (OpenCV uses BGR by default)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # Normalize the image
-        img = img / 255.0
-        # Add batch dimension
-        img = np.expand_dims(img, axis=0)
-        
-        # Make prediction
-        prediction = model2.predict(img)
-        predicted_class_index = np.argmax(prediction, axis=-1)[0]
-        confidence = float(prediction[0][predicted_class_index])
-        result = class_names_sign[predicted_class_index]
-    
-    elif model_type == 'driver_behavior':
-        # Resize the image to match model input size
-        img = cv2.resize(img_array, (224, 224))
-        # Convert BGR to RGB (OpenCV uses BGR by default)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # Normalize the image
-        img = img / 255.0
-        # Add batch dimension
-        img = np.expand_dims(img, axis=0)
-        
-        # Make prediction
-        prediction = model1.predict(img)
-        predicted_class_index = np.argmax(prediction, axis=-1)[0]
-        confidence = float(prediction[0][predicted_class_index])
-        result = class_names[predicted_class_index]
-    
-    return result, confidence
-
 # Load the label encoder and scaler
-with open(os.path.join(APP_ROOT, 'label_encoder.pkl'), 'rb') as f:
-    label_encoder = pickle.load(f)
+try:
+    with open(LABEL_ENCODER_PATH, 'rb') as f:
+        label_encoder = pickle.load(f)
+    print("Label encoder loaded successfully")
+except Exception as e:
+    print(f"Error loading label encoder: {str(e)}")
+    label_encoder = None
 
-with open(os.path.join(APP_ROOT, 'scaler.pkl'), 'rb') as f:
-    scaler = pickle.load(f)
+try:
+    with open(SCALER_PATH, 'rb') as f:
+        scaler = pickle.load(f)
+    print("Scaler loaded successfully")
+except Exception as e:
+    print(f"Error loading scaler: {str(e)}")
+    scaler = None
 
 app = Flask(__name__)
 # Enable CORS for all routes
@@ -527,16 +550,62 @@ def extract_features(audio_path, n_mfcc=13):
         print(f"Error in extract_features: {str(e)}")
         raise ValueError(f"Error processing audio file: {str(e)}")
     
-def predict_sign(image_path):
-    img = load_img(image_path, target_size=(224, 224, 3))
+def predict_signRS(image_path):
+    if model2 is None:
+        return "Model not loaded"
+    
+    img = load_img(image_path, target_size=(150, 150, 3))
     img = img_to_array(img)
     img = img / 255.0
     img = np.expand_dims(img, axis=0)
 
-    prediction = model1.predict(img)
+    prediction = model2.predict(img)
     predicted_class_index = np.argmax(prediction, axis=-1)[0]
-    result = class_names[predicted_class_index]
+    result = class_names_sign[predicted_class_index]
     return result
+
+
+# Function to predict from numpy array (for video frames)
+def predict_from_array(img_array, model_type='road_sign'):
+    if model_type == 'road_sign':
+        if model2 is None:
+            return "Model not loaded", 0.0
+            
+        # Resize the image to match model input size
+        img = cv2.resize(img_array, (150, 150))
+        # Convert BGR to RGB (OpenCV uses BGR by default)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # Normalize the image
+        img = img / 255.0
+        # Add batch dimension
+        img = np.expand_dims(img, axis=0)
+        
+        # Make prediction
+        prediction = model2.predict(img)
+        predicted_class_index = np.argmax(prediction, axis=-1)[0]
+        confidence = float(prediction[0][predicted_class_index])
+        result = class_names_sign[predicted_class_index]
+    
+    elif model_type == 'driver_behavior':
+        if model1 is None:
+            return "Model not loaded", 0.0
+            
+        # Resize the image to match model input size
+        img = cv2.resize(img_array, (224, 224))
+        # Convert BGR to RGB (OpenCV uses BGR by default)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # Normalize the image
+        img = img / 255.0
+        # Add batch dimension
+        img = np.expand_dims(img, axis=0)
+        
+        # Make prediction
+        prediction = model1.predict(img)
+        predicted_class_index = np.argmax(prediction, axis=-1)[0]
+        confidence = float(prediction[0][predicted_class_index])
+        result = class_names[predicted_class_index]
+    
+    return result, confidence
 
 @app.route('/')
 def home():
@@ -586,6 +655,10 @@ def predictRS():
         return jsonify({"error": "No image selected"}), 400
 
     try:
+        # Check if model is loaded
+        if model2 is None:
+            return jsonify({"error": "Road sign model not loaded. Please check server logs."}), 500
+            
         image_path = os.path.join(TEMP_DIR, "uploaded_image_rs.jpg")
         image.save(image_path)
 
@@ -791,6 +864,10 @@ def predict():
     if audio_file.filename == '':
         return jsonify({'error': 'No file selected'})
     
+    # Check if model and preprocessing objects are loaded
+    if model is None or scaler is None or label_encoder is None:
+        return jsonify({'error': 'Audio classification model or preprocessing objects not loaded. Please check server logs.'})
+    
     # Save the uploaded file
     audio_path = os.path.join(TEMP_DIR, audio_file.filename)
     audio_file.save(audio_path)
@@ -849,6 +926,10 @@ def predictD():
         return jsonify({"error": "No image selected"}), 400
 
     try:
+        # Check if model is loaded
+        if model1 is None:
+            return jsonify({"error": "Driver behavior model not loaded. Please check server logs."}), 500
+            
         image_path = os.path.join(TEMP_DIR, "uploaded_image_d.jpg")
         image.save(image_path)
 
@@ -886,8 +967,18 @@ if __name__ == '__main__':
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         cv2.imwrite(error_img_path, error_img)
     
-    # For development
-    # app.run(debug=True)
+    # Check if any models need to be downloaded
+    model_files = {
+        'vggModel_driver_behaviour.h5': '1ZIyCdv4bkyOJ47S9lLiZqD6mnqGBFcIe',
+        'vggModel.h5': '1ZIyCdv4bkyOJ47S9lLiZqD6mnqGBFcIe',  # Replace with actual ID
+        'audio_classification_model.h5': '1ZIyCdv4bkyOJ47S9lLiZqD6mnqGBFcIe'  # Replace with actual ID
+    }
+    
+    for model_file, file_id in model_files.items():
+        model_path = os.path.join(APP_ROOT, model_file)
+        if not os.path.exists(model_path):
+            print(f"Model {model_file} not found. Attempting to download...")
+            download_from_gdrive(file_id, model_path)
     
     # For production on EC2
     app.run(host='0.0.0.0', port=5000, debug=False)

@@ -4,121 +4,272 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Road Sign Prediction</title>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        :root {
+            --primary-color: #4285F4;
+            --secondary-color: #34A853;
+            --danger-color: #EA4335;
+            --warning-color: #FBBC05;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f9;
         }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7fc;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
         .container {
             max-width: 600px;
-            margin: 50px auto;
+            width: 100%;
+            margin: 0 auto;
             background-color: #fff;
-            padding: 20px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
+            padding: 30px;
+            box-shadow: var(--box-shadow);
+            border-radius: var(--border-radius);
         }
+
         h1 {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
+            color: var(--primary-color);
+            position: relative;
+            padding-bottom: 10px;
         }
-        input[type="file"] {
-            display: block;
-            margin: 20px auto;
+
+        h1:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background-color: var(--secondary-color);
+            border-radius: 3px;
         }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            cursor: pointer;
+
+        .file-upload {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 100%;
-            border-radius: 5px;
-            font-size: 16px;
+            padding: 15px;
+            background-color: var(--light-color);
+            border: 2px dashed #ccc;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
         }
-        button:hover {
-            background-color: #45a049;
+
+        .file-upload-label:hover {
+            border-color: var(--primary-color);
+            background-color: #e9f0fe;
+        }
+
+        .file-upload-label i {
+            font-size: 24px;
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+
+        .file-upload input[type="file"] {
+            position: absolute;
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            transition: var(--transition);
+            margin: 20px 0;
+        }
+
+        .btn i {
+            margin-right: 8px;
+        }
+
+        .btn:hover {
+            background-color: #2d9249;
+            transform: translateY(-2px);
+        }
+
+        /* Image Preview */
+        .image-preview-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        #imagePreview {
+            display: none;
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin: 0 auto;
         }
 
         /* Modal Styles */
         .modal {
-            display: none; /* Hidden by default */
+            display: none;
             position: fixed;
-            z-index: 1; /* Sit on top */
+            z-index: 1000;
             left: 0;
             top: 0;
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgb(0,0,0); /* Fallback color */
-            background-color: rgba(0,0,0,0.4); /* Black with opacity */
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
             padding-top: 60px;
+            transition: var(--transition);
         }
 
         /* Modal Content */
         .modal-content {
             background-color: #fefefe;
             margin: 5% auto;
-            padding: 20px;
-            border: 1px solid #888;
+            padding: 30px;
+            border: none;
             width: 80%;
-            border-radius: 8px;
+            max-width: 500px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            position: relative;
+            animation: modalFadeIn 0.3s;
+        }
+
+        @keyframes modalFadeIn {
+            from {opacity: 0; transform: translateY(-20px);}
+            to {opacity: 1; transform: translateY(0);}
         }
 
         /* Close Button */
         .close {
+            position: absolute;
+            right: 20px;
+            top: 15px;
             color: #aaa;
-            float: right;
             font-size: 28px;
             font-weight: bold;
-        }
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
+            transition: var(--transition);
         }
 
-        /* Image Preview */
-        #imagePreview {
-            display: block;
-            margin: 20px auto;
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-        }
-        
-        /* Video Link */
-        .video-link {
-            display: block;
-            text-align: center;
-            margin-top: 20px;
-            color: #2196F3;
+        .close:hover,
+        .close:focus {
+            color: var(--danger-color);
             text-decoration: none;
-            font-weight: bold;
-        }
-        .video-link:hover {
-            text-decoration: underline;
+            cursor: pointer;
         }
 
         /* Navigation Buttons */
         .nav-buttons {
-            text-align: center;
-            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
         }
+
         .nav-button {
-            background-color: #2196F3;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 15px;
+            background-color: var(--primary-color);
             color: white;
-            padding: 10px 20px;
             border: none;
+            border-radius: var(--border-radius);
             cursor: pointer;
-            margin: 0 10px;
-            border-radius: 5px;
-            font-size: 16px;
+            font-size: 0.9em;
+            text-decoration: none;
+            transition: var(--transition);
         }
+
         .nav-button:hover {
-            background-color: #1976D2;
+            background-color: #3367d6;
+            transform: translateY(-2px);
+        }
+
+        .nav-button i {
+            margin-right: 8px;
+        }
+
+        #predictionText {
+            font-size: 1.1em;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .prediction-result {
+            font-weight: bold;
+            color: var(--secondary-color);
+            font-size: 1.2em;
+        }
+
+        .confidence-value {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+            }
+
+            .nav-button {
+                width: 100%;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
         }
     </style>
 </head>
@@ -127,39 +278,69 @@
 <div class="container">
     <h1>Road Sign Prediction</h1>
     <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" id="imageFile" name="image" accept="image/*" required>
-        <img id="imagePreview" src="" alt="Image Preview" style="display: none;">
-        <button type="submit">Upload and Predict</button>
+        <div class="file-upload">
+            <label for="imageFile" class="file-upload-label">
+                <i class="fas fa-image"></i>
+                <span id="fileLabel">Choose an image file</span>
+            </label>
+            <input type="file" id="imageFile" name="image" accept="image/*" required>
+        </div>
+        
+        <div class="image-preview-container">
+            <img id="imagePreview" src="" alt="Image Preview">
+        </div>
+        
+        <button type="submit" class="btn">
+            <i class="fas fa-cloud-upload-alt"></i> Upload and Predict
+        </button>
     </form>
     
     <div class="nav-buttons">
-        <a href="/" class="nav-button">Audio Classification</a>
-        <a href="/driverBehaviour" class="nav-button">Driver Behavior</a>
-        <a href="/video" class="nav-button">Real-time Video Detection</a>
-        <a href="/floodP" class="nav-button">Flood Prediction</a>
+        <a href="/" class="nav-button">
+            <i class="fas fa-headphones"></i> Audio Classification
+        </a>
+        <a href="/driverBehaviour" class="nav-button">
+            <i class="fas fa-car"></i> Driver Behavior
+        </a>
+        <a href="/video" class="nav-button">
+            <i class="fas fa-video"></i> Real-time Detection
+        </a>
+        <a href="/floodP" class="nav-button">
+            <i class="fas fa-water"></i> Flood Prediction
+        </a>
     </div>
 </div>
 
 <div id="predictionModal" class="modal">
     <div class="modal-content">
         <span class="close" id="closeModal">&times;</span>
-        <h2>Prediction Result</h2>
+        <h2 style="text-align: center; margin-bottom: 20px; color: var(--primary-color);">Prediction Result</h2>
         <p id="predictionText"></p>
     </div>
 </div>
 
 <script>
     // preview before submitting
-    document.getElementById("imageFile").addEventListener("change", function(event) {
+    const imageFile = document.getElementById("imageFile");
+    const fileLabel = document.getElementById("fileLabel");
+    const imagePreview = document.getElementById("imagePreview");
+    
+    imageFile.addEventListener("change", function(event) {
         const file = event.target.files[0];
         if (file) {
+            // Update file label
+            fileLabel.textContent = file.name;
+            
+            // Show image preview
             const reader = new FileReader();
             reader.onload = function(e) {
-                const imgElement = document.getElementById("imagePreview");
-                imgElement.style.display = "block";
-                imgElement.src = e.target.result;
+                imagePreview.style.display = "block";
+                imagePreview.src = e.target.result;
             };
             reader.readAsDataURL(file);
+        } else {
+            fileLabel.textContent = "Choose an image file";
+            imagePreview.style.display = "none";
         }
     });
 
@@ -168,6 +349,11 @@
         
         const formData = new FormData();
         const fileInput = document.getElementById("imageFile");
+        
+        if (!fileInput.files[0]) {
+            alert("Please select an image file");
+            return;
+        }
         
         formData.append("image", fileInput.files[0]);
 
@@ -179,18 +365,36 @@
         .then(response => response.json())
         .then(data => {
             if (data.prediction) {
-                document.getElementById("predictionText").innerHTML = `Predicted Road Sign: <strong>${data.prediction}</strong> (Confidence: ${data.confidence})`;
+                document.getElementById("predictionText").innerHTML = `
+                    <div style="text-align: center;">
+                        <div class="prediction-result">${data.prediction}</div>
+                        <div class="confidence-value">Confidence: ${data.confidence}</div>
+                    </div>
+                `;
                 document.getElementById("predictionModal").style.display = "block";
             } else if (data.message) {
-                document.getElementById("predictionText").innerHTML = `${data.message} (Confidence: ${data.confidence})`;
+                document.getElementById("predictionText").innerHTML = `
+                    <div style="text-align: center;">
+                        <div>${data.message}</div>
+                        <div class="confidence-value">Confidence: ${data.confidence}</div>
+                    </div>
+                `;
                 document.getElementById("predictionModal").style.display = "block";
             } else if (data.error) {
-                document.getElementById("predictionText").innerHTML = `Error: ${data.error}`;
+                document.getElementById("predictionText").innerHTML = `
+                    <div style="text-align: center; color: var(--danger-color);">
+                        <i class="fas fa-exclamation-circle"></i> Error: ${data.error}
+                    </div>
+                `;
                 document.getElementById("predictionModal").style.display = "block";
             }
         })
         .catch(error => {
-            document.getElementById("predictionText").innerHTML = `Error: ${error}`;
+            document.getElementById("predictionText").innerHTML = `
+                <div style="text-align: center; color: var(--danger-color);">
+                    <i class="fas fa-exclamation-circle"></i> Error: ${error}
+                </div>
+            `;
             document.getElementById("predictionModal").style.display = "block";
         });
     });
