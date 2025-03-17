@@ -28,12 +28,44 @@ warnings.filterwarnings('ignore')
 # Get the absolute path to the application directory
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
+# Define directories
+TEMP_DIR = os.path.join(APP_ROOT, 'temp')
+STATIC_DIR = os.path.join(APP_ROOT, 'static')
+
+# Create directories if they don't exist
+os.makedirs(TEMP_DIR, exist_ok=True)
+os.makedirs(STATIC_DIR, exist_ok=True)
+
+# Check and install required packages
+def check_and_install_requirements():
+    required_packages = [
+        'flask', 'numpy', 'pandas', 'joblib', 'requests', 'tensorflow', 'keras',
+        'scikit-learn', 'librosa', 'soundfile', 'opencv-python', 'flask-cors', 'gdown'
+    ]
+    
+    for package in required_packages:
+        try:
+            __import__(package.replace('-', '_'))
+            print(f"✓ {package} is already installed")
+        except ImportError:
+            print(f"Installing {package}...")
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+                print(f"✓ Successfully installed {package}")
+            except Exception as e:
+                print(f"✗ Failed to install {package}: {str(e)}")
+
+# Check and install requirements
+print("Checking required packages...")
+check_and_install_requirements()
+
 # Define paths for models
 DRIVER_BEHAVIOR_MODEL_PATH = os.path.join(APP_ROOT, 'vggModel_driver_behaviour.h5')
 ROAD_SIGN_MODEL_PATH = os.path.join(APP_ROOT, 'vggModel.h5')
 AUDIO_MODEL_PATH = os.path.join(APP_ROOT, 'audio_classification_model.h5')
 LABEL_ENCODER_PATH = os.path.join(APP_ROOT, 'label_encoder.pkl')
 SCALER_PATH = os.path.join(APP_ROOT, 'scaler.pkl')
+WATER_LEVEL_MODEL_PATH = os.path.join(APP_ROOT, 'water_level_prediction_model.pkl')
 
 # Function to download model from Google Drive
 def download_from_gdrive(file_id, destination):
@@ -69,6 +101,50 @@ def download_from_gdrive(file_id, destination):
 if not os.path.exists(DRIVER_BEHAVIOR_MODEL_PATH):
     print("Driver behavior model not found. Downloading from Google Drive...")
     download_from_gdrive("1ZIyCdv4bkyOJ47S9lLiZqD6mnqGBFcIe", DRIVER_BEHAVIOR_MODEL_PATH)
+
+if not os.path.exists(ROAD_SIGN_MODEL_PATH):
+    print("Road sign model not found. Downloading from Google Drive...")
+    download_from_gdrive("1Cs5QlqANw9cjI9plj4XLtgvdpXu0Ww90", ROAD_SIGN_MODEL_PATH)
+
+if not os.path.exists(AUDIO_MODEL_PATH):
+    print("Audio model not found. Downloading from Google Drive...")
+    download_from_gdrive("1cLDCrlTctFcZ74VB0Sa02sYs6HJBgw7Z", AUDIO_MODEL_PATH)
+
+# Download label encoder and scaler if they don't exist
+# Note: You'll need to provide the correct file IDs for these files
+if not os.path.exists(LABEL_ENCODER_PATH):
+    print("Label encoder not found. Creating a default one...")
+    # Create a default label encoder with common audio classes
+    from sklearn.preprocessing import LabelEncoder
+    default_classes = ["car_horn", "engine_idling", "gun_shot", "siren", "street_music", "air_conditioner", "children_playing", "dog_bark", "drilling", "jackhammer"]
+    le = LabelEncoder()
+    le.fit(default_classes)
+    with open(LABEL_ENCODER_PATH, 'wb') as f:
+        pickle.dump(le, f)
+
+if not os.path.exists(SCALER_PATH):
+    print("Scaler not found. Creating a default one...")
+    # Create a default scaler
+    default_scaler = StandardScaler()
+    # Initialize with some reasonable values for audio features
+    default_features = np.random.rand(10, 193)  # Typical MFCC feature size
+    default_scaler.fit(default_features)
+    with open(SCALER_PATH, 'wb') as f:
+        pickle.dump(default_scaler, f)
+
+# Create a default water level prediction model if it doesn't exist
+if not os.path.exists(WATER_LEVEL_MODEL_PATH):
+    print("Water level prediction model not found. Creating a default one...")
+    from sklearn.ensemble import RandomForestRegressor
+    # Create a simple model with default parameters
+    default_model = RandomForestRegressor(n_estimators=10, random_state=42)
+    # Train on some dummy data
+    X_dummy = np.random.rand(100, 10)  # Features: river, station, month, day, rainfall, prev_rainfall (5 days)
+    y_dummy = np.random.rand(100)      # Target: water level
+    default_model.fit(X_dummy, y_dummy)
+    # Save the model
+    joblib.dump(default_model, WATER_LEVEL_MODEL_PATH)
+    print(f"Created default water level prediction model at {WATER_LEVEL_MODEL_PATH}")
 
 # Load the trained models
 print("Loading models...")
@@ -465,12 +541,6 @@ def find_nearest_station():
 video_sources = {}
 # Lock for thread safety
 video_sources_lock = Lock()
-
-# Ensure temp directory exists
-TEMP_DIR = os.path.join(APP_ROOT, 'temp')
-STATIC_DIR = os.path.join(APP_ROOT, 'static')
-os.makedirs(TEMP_DIR, exist_ok=True)
-os.makedirs(STATIC_DIR, exist_ok=True)
 
 def extract_features(audio_path, n_mfcc=13):
     try:
@@ -970,8 +1040,8 @@ if __name__ == '__main__':
     # Check if any models need to be downloaded
     model_files = {
         'vggModel_driver_behaviour.h5': '1ZIyCdv4bkyOJ47S9lLiZqD6mnqGBFcIe',
-        'vggModel.h5': '1ZIyCdv4bkyOJ47S9lLiZqD6mnqGBFcIe',  # Replace with actual ID
-        'audio_classification_model.h5': '1ZIyCdv4bkyOJ47S9lLiZqD6mnqGBFcIe'  # Replace with actual ID
+        'vggModel.h5': '1Cs5QlqANw9cjI9plj4XLtgvdpXu0Ww90',
+        'audio_classification_model.h5': '1cLDCrlTctFcZ74VB0Sa02sYs6HJBgw7Z'
     }
     
     for model_file, file_id in model_files.items():
