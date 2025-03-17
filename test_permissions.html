@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permission Test Page</title>
+    <meta http-equiv="Feature-Policy" content="microphone *; camera *; geolocation *">
+    <meta http-equiv="Permissions-Policy" content="microphone=*, camera=*, geolocation=*">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2196F3;
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        .test-box {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            width: 300px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .test-box h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 18px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 0;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.error {
+            background-color: #f44336;
+        }
+        button.success {
+            background-color: #2196F3;
+        }
+        video, audio {
+            width: 100%;
+            margin-top: 10px;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .success-status {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .error-status {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .instructions {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .instructions h2 {
+            margin-top: 0;
+            color: #1565c0;
+        }
+        .instructions ul {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Permission Test Page</h1>
+    
+    <div class="instructions">
+        <h2>Instructions</h2>
+        <p>This page helps you test if your browser can access your camera, microphone, and location. Click the buttons below to test each permission.</p>
+        <ul>
+            <li>If the test is successful, you'll see a green success message.</li>
+            <li>If the test fails, you'll see a red error message with details.</li>
+            <li>For camera and microphone tests, you should see/hear a preview if permissions are granted.</li>
+        </ul>
+    </div>
+    
+    <div class="container">
+        <div class="test-box">
+            <h2>Camera Test</h2>
+            <button id="cameraBtn">Test Camera</button>
+            <video id="cameraPreview" autoplay muted></video>
+            <div id="cameraStatus" class="status"></div>
+        </div>
+        
+        <div class="test-box">
+            <h2>Microphone Test</h2>
+            <button id="micBtn">Test Microphone</button>
+            <div id="audioVisualizer" style="height: 50px; background: #f5f5f5; margin-top: 10px; border-radius: 4px;"></div>
+            <div id="micStatus" class="status"></div>
+        </div>
+        
+        <div class="test-box">
+            <h2>Location Test</h2>
+            <button id="locationBtn">Test Location</button>
+            <div id="locationStatus" class="status"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Camera test
+        document.getElementById('cameraBtn').addEventListener('click', async () => {
+            const cameraBtn = document.getElementById('cameraBtn');
+            const cameraStatus = document.getElementById('cameraStatus');
+            const cameraPreview = document.getElementById('cameraPreview');
+            
+            try {
+                cameraBtn.textContent = 'Requesting...';
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                cameraPreview.srcObject = stream;
+                
+                cameraStatus.textContent = 'Camera access granted!';
+                cameraStatus.className = 'status success-status';
+                cameraBtn.textContent = 'Camera Working';
+                cameraBtn.className = 'success';
+            } catch (error) {
+                cameraStatus.textContent = `Error: ${error.message}`;
+                cameraStatus.className = 'status error-status';
+                cameraBtn.textContent = 'Camera Access Denied';
+                cameraBtn.className = 'error';
+                console.error('Camera error:', error);
+            }
+        });
+        
+        // Microphone test
+        document.getElementById('micBtn').addEventListener('click', async () => {
+            const micBtn = document.getElementById('micBtn');
+            const micStatus = document.getElementById('micStatus');
+            const audioVisualizer = document.getElementById('audioVisualizer');
+            
+            try {
+                micBtn.textContent = 'Requesting...';
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Create audio visualizer
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const analyser = audioContext.createAnalyser();
+                const microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                analyser.fftSize = 256;
+                
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                // Create canvas for visualizer
+                const canvas = document.createElement('canvas');
+                canvas.width = audioVisualizer.clientWidth;
+                canvas.height = audioVisualizer.clientHeight;
+                audioVisualizer.innerHTML = '';
+                audioVisualizer.appendChild(canvas);
+                const canvasCtx = canvas.getContext('2d');
+                
+                function draw() {
+                    requestAnimationFrame(draw);
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    canvasCtx.fillStyle = '#f5f5f5';
+                    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    const barWidth = (canvas.width / bufferLength) * 2.5;
+                    let barHeight;
+                    let x = 0;
+                    
+                    for(let i = 0; i < bufferLength; i++) {
+                        barHeight = dataArray[i] / 2;
+                        canvasCtx.fillStyle = `rgb(${barHeight + 100}, 50, 50)`;
+                        canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                        x += barWidth + 1;
+                    }
+                }
+                
+                draw();
+                
+                micStatus.textContent = 'Microphone access granted! Speak to see the visualizer move.';
+                micStatus.className = 'status success-status';
+                micBtn.textContent = 'Microphone Working';
+                micBtn.className = 'success';
+            } catch (error) {
+                micStatus.textContent = `Error: ${error.message}`;
+                micStatus.className = 'status error-status';
+                micBtn.textContent = 'Microphone Access Denied';
+                micBtn.className = 'error';
+                console.error('Microphone error:', error);
+            }
+        });
+        
+        // Location test
+        document.getElementById('locationBtn').addEventListener('click', () => {
+            const locationBtn = document.getElementById('locationBtn');
+            const locationStatus = document.getElementById('locationStatus');
+            
+            locationBtn.textContent = 'Requesting...';
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude.toFixed(6);
+                        const lng = position.coords.longitude.toFixed(6);
+                        locationStatus.textContent = `Location access granted! Your coordinates: ${lat}, ${lng}`;
+                        locationStatus.className = 'status success-status';
+                        locationBtn.textContent = 'Location Working';
+                        locationBtn.className = 'success';
+                    },
+                    (error) => {
+                        let errorMsg = 'Unknown error';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMsg = 'Permission denied';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMsg = 'Position unavailable';
+                                break;
+                            case error.TIMEOUT:
+                                errorMsg = 'Request timed out';
+                                break;
+                        }
+                        locationStatus.textContent = `Error: ${errorMsg}`;
+                        locationStatus.className = 'status error-status';
+                        locationBtn.textContent = 'Location Access Denied';
+                        locationBtn.className = 'error';
+                        console.error('Location error:', error);
+                    }
+                );
+            } else {
+                locationStatus.textContent = 'Error: Geolocation is not supported by this browser';
+                locationStatus.className = 'status error-status';
+                locationBtn.textContent = 'Location Not Supported';
+                locationBtn.className = 'error';
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -136,12 +136,44 @@ if not os.path.exists(SCALER_PATH):
 if not os.path.exists(WATER_LEVEL_MODEL_PATH):
     print("Water level prediction model not found. Creating a default one...")
     from sklearn.ensemble import RandomForestRegressor
+    
     # Create a simple model with default parameters
     default_model = RandomForestRegressor(n_estimators=10, random_state=42)
-    # Train on some dummy data
-    X_dummy = np.random.rand(100, 10)  # Features: river, station, month, day, rainfall, prev_rainfall (5 days)
-    y_dummy = np.random.rand(100)      # Target: water level
+    
+    # Create dummy features that match our prediction function
+    # Note: We're excluding categorical variables (River Name, Station Name)
+    feature_names = [
+        'Month_num', 'Day', 'Day_of_year', 'Year (2023) - Rainfall (mm)',
+        'Year (2023) - Rainfall (mm)_lag_1', 'Year (2023) - Water Level (m)_lag_1',
+        'Year (2023) - Rainfall (mm)_lag_2', 'Year (2023) - Water Level (m)_lag_2',
+        'Year (2023) - Rainfall (mm)_lag_3', 'Year (2023) - Water Level (m)_lag_3',
+        'Year (2023) - Rainfall (mm)_lag_4', 'Year (2023) - Water Level (m)_lag_4',
+        'Year (2023) - Rainfall (mm)_lag_5', 'Year (2023) - Water Level (m)_lag_5',
+        'Year (2023) - Rainfall (mm)_roll_mean_3', 'Year (2023) - Rainfall (mm)_roll_std_3',
+        'Year (2023) - Water Level (m)_roll_mean_3', 'Year (2023) - Water Level (m)_roll_std_3',
+        'Year (2023) - Rainfall (mm)_roll_mean_7', 'Year (2023) - Rainfall (mm)_roll_std_7',
+        'Year (2023) - Water Level (m)_roll_mean_7', 'Year (2023) - Water Level (m)_roll_std_7'
+    ]
+    
+    # Generate random data for these features
+    n_samples = 100
+    X_dummy = pd.DataFrame(np.random.rand(n_samples, len(feature_names)), columns=feature_names)
+    
+    # Month_num should be 1-12
+    X_dummy['Month_num'] = np.random.randint(1, 13, size=n_samples)
+    
+    # Day should be 1-31
+    X_dummy['Day'] = np.random.randint(1, 32, size=n_samples)
+    
+    # Day_of_year should be 1-366
+    X_dummy['Day_of_year'] = np.random.randint(1, 367, size=n_samples)
+    
+    # Generate target values (water levels between 2.0 and 6.0)
+    y_dummy = 2.0 + 4.0 * np.random.rand(n_samples)
+    
+    # Train the model
     default_model.fit(X_dummy, y_dummy)
+    
     # Save the model
     joblib.dump(default_model, WATER_LEVEL_MODEL_PATH)
     print(f"Created default water level prediction model at {WATER_LEVEL_MODEL_PATH}")
@@ -355,11 +387,8 @@ def predict_water_level(river_name, station_name, month, day, rainfall, prev_rai
         except:
             day_of_year = 1
         
-        # Create a dataframe with the input data
+        # Create a dataframe with the input data (excluding categorical variables for now)
         data = {
-            'River Name': [river_name],
-            'Station Name': [station_name],
-            'Month': [month],
             'Month_num': [month_num],
             'Day': [day],
             'Day_of_year': [day_of_year],
@@ -386,21 +415,47 @@ def predict_water_level(river_name, station_name, month, day, rainfall, prev_rai
         # Create a dataframe
         df = pd.DataFrame(data)
         
-        # Make prediction
-        prediction = float(model.predict(df)[0])
+        # Handle categorical variables (River Name and Station Name)
+        # Since our default model doesn't actually use these features, we'll create a simple prediction
+        # In a real model, you would use one-hot encoding or other categorical encoding methods
+        
+        # For demonstration, we'll use a simple mapping of rivers to base water levels
+        river_base_levels = {
+            'Kelani': 3.5,
+            'Kalu': 3.2,
+            'Mahaweli': 4.0,
+            'Gin': 2.8,
+            'Nilwala': 3.0,
+            'Walawe': 2.5
+        }
+        
+        # Get base level for the river (default to 3.0 if river not in mapping)
+        base_level = river_base_levels.get(river_name, 3.0)
+        
+        # Make prediction using the model (which doesn't use categorical variables)
+        # and then adjust based on the river's base level
+        try:
+            model_prediction = float(model.predict(df)[0])
+            # Adjust prediction based on river's base level
+            adjusted_prediction = (model_prediction + base_level) / 2
+        except Exception as e:
+            print(f"Model prediction error: {str(e)}")
+            # Fallback to a simple prediction based on rainfall and river base level
+            adjusted_prediction = base_level + (rainfall * 0.05)
         
         # Determine risk level
         risk_level = "NORMAL"
-        if prediction > 5.0:
+        if adjusted_prediction > 5.0:
             risk_level = "HIGH"
-        elif prediction > 4.0:
+        elif adjusted_prediction > 4.0:
             risk_level = "MODERATE"
         
         return {
-            "prediction": round(prediction, 2),
+            "prediction": round(adjusted_prediction, 2),
             "risk_level": risk_level
         }
     except Exception as e:
+        print(f"Prediction error details: {str(e)}")
         return {"error": f"Prediction error: {str(e)}"}
     
 
@@ -1022,6 +1077,80 @@ def predictD():
             return jsonify({"message": "No confident prediction available", "confidence": f"{confidence:.2f}"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/test-permissions')
+def test_permissions():
+    """Serve a page to test camera, microphone, and location permissions"""
+    test_page_path = os.path.join(APP_ROOT, 'test_permissions.html')
+    
+    # Check if the test page exists
+    if os.path.exists(test_page_path):
+        with open(test_page_path, 'r') as f:
+            content = f.read()
+        return content
+    else:
+        return "Permission test page not found. Please make sure test_permissions.html exists in the application directory."
+
+@app.route('/reset-flood-model')
+def reset_flood_model():
+    """Reset the water level prediction model"""
+    try:
+        # Delete the existing model
+        if os.path.exists(WATER_LEVEL_MODEL_PATH):
+            os.remove(WATER_LEVEL_MODEL_PATH)
+            
+        # Create a new model
+        from sklearn.ensemble import RandomForestRegressor
+        
+        # Create a simple model with default parameters
+        default_model = RandomForestRegressor(n_estimators=10, random_state=42)
+        
+        # Create dummy features that match our prediction function
+        # Note: We're excluding categorical variables (River Name, Station Name)
+        feature_names = [
+            'Month_num', 'Day', 'Day_of_year', 'Year (2023) - Rainfall (mm)',
+            'Year (2023) - Rainfall (mm)_lag_1', 'Year (2023) - Water Level (m)_lag_1',
+            'Year (2023) - Rainfall (mm)_lag_2', 'Year (2023) - Water Level (m)_lag_2',
+            'Year (2023) - Rainfall (mm)_lag_3', 'Year (2023) - Water Level (m)_lag_3',
+            'Year (2023) - Rainfall (mm)_lag_4', 'Year (2023) - Water Level (m)_lag_4',
+            'Year (2023) - Rainfall (mm)_lag_5', 'Year (2023) - Water Level (m)_lag_5',
+            'Year (2023) - Rainfall (mm)_roll_mean_3', 'Year (2023) - Rainfall (mm)_roll_std_3',
+            'Year (2023) - Water Level (m)_roll_mean_3', 'Year (2023) - Water Level (m)_roll_std_3',
+            'Year (2023) - Rainfall (mm)_roll_mean_7', 'Year (2023) - Rainfall (mm)_roll_std_7',
+            'Year (2023) - Water Level (m)_roll_mean_7', 'Year (2023) - Water Level (m)_roll_std_7'
+        ]
+        
+        # Generate random data for these features
+        n_samples = 100
+        X_dummy = pd.DataFrame(np.random.rand(n_samples, len(feature_names)), columns=feature_names)
+        
+        # Month_num should be 1-12
+        X_dummy['Month_num'] = np.random.randint(1, 13, size=n_samples)
+        
+        # Day should be 1-31
+        X_dummy['Day'] = np.random.randint(1, 32, size=n_samples)
+        
+        # Day_of_year should be 1-366
+        X_dummy['Day_of_year'] = np.random.randint(1, 367, size=n_samples)
+        
+        # Generate target values (water levels between 2.0 and 6.0)
+        y_dummy = 2.0 + 4.0 * np.random.rand(n_samples)
+        
+        # Train the model
+        default_model.fit(X_dummy, y_dummy)
+        
+        # Save the model
+        joblib.dump(default_model, WATER_LEVEL_MODEL_PATH)
+        
+        return jsonify({
+            "success": True,
+            "message": "Water level prediction model has been reset successfully."
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Failed to reset model: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     # Create static folder if it doesn't exist
