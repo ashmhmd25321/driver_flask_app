@@ -21,6 +21,9 @@ import warnings
 from flask_cors import CORS
 import subprocess
 import sys
+import calendar
+# Import the flood_prediction module
+import flood_prediction
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -135,48 +138,7 @@ if not os.path.exists(SCALER_PATH):
 # Create a default water level prediction model if it doesn't exist
 if not os.path.exists(WATER_LEVEL_MODEL_PATH):
     print("Water level prediction model not found. Creating a default one...")
-    from sklearn.ensemble import RandomForestRegressor
-    
-    # Create a simple model with default parameters
-    default_model = RandomForestRegressor(n_estimators=10, random_state=42)
-    
-    # Create dummy features that match our prediction function
-    # Note: We're excluding categorical variables (River Name, Station Name)
-    feature_names = [
-        'Month_num', 'Day', 'Day_of_year', 'Year (2023) - Rainfall (mm)',
-        'Year (2023) - Rainfall (mm)_lag_1', 'Year (2023) - Water Level (m)_lag_1',
-        'Year (2023) - Rainfall (mm)_lag_2', 'Year (2023) - Water Level (m)_lag_2',
-        'Year (2023) - Rainfall (mm)_lag_3', 'Year (2023) - Water Level (m)_lag_3',
-        'Year (2023) - Rainfall (mm)_lag_4', 'Year (2023) - Water Level (m)_lag_4',
-        'Year (2023) - Rainfall (mm)_lag_5', 'Year (2023) - Water Level (m)_lag_5',
-        'Year (2023) - Rainfall (mm)_roll_mean_3', 'Year (2023) - Rainfall (mm)_roll_std_3',
-        'Year (2023) - Water Level (m)_roll_mean_3', 'Year (2023) - Water Level (m)_roll_std_3',
-        'Year (2023) - Rainfall (mm)_roll_mean_7', 'Year (2023) - Rainfall (mm)_roll_std_7',
-        'Year (2023) - Water Level (m)_roll_mean_7', 'Year (2023) - Water Level (m)_roll_std_7'
-    ]
-    
-    # Generate random data for these features
-    n_samples = 100
-    X_dummy = pd.DataFrame(np.random.rand(n_samples, len(feature_names)), columns=feature_names)
-    
-    # Month_num should be 1-12
-    X_dummy['Month_num'] = np.random.randint(1, 13, size=n_samples)
-    
-    # Day should be 1-31
-    X_dummy['Day'] = np.random.randint(1, 32, size=n_samples)
-    
-    # Day_of_year should be 1-366
-    X_dummy['Day_of_year'] = np.random.randint(1, 367, size=n_samples)
-    
-    # Generate target values (water levels between 2.0 and 6.0)
-    y_dummy = 2.0 + 4.0 * np.random.rand(n_samples)
-    
-    # Train the model
-    default_model.fit(X_dummy, y_dummy)
-    
-    # Save the model
-    joblib.dump(default_model, WATER_LEVEL_MODEL_PATH)
-    print(f"Created default water level prediction model at {WATER_LEVEL_MODEL_PATH}")
+    flood_prediction.reset_flood_model(WATER_LEVEL_MODEL_PATH)
 
 # Load the trained models
 print("Loading models...")
@@ -340,7 +302,8 @@ def get_weather_data(lat, lon):
                     'temp': current_data['main']['temp'],
                     'humidity': current_data['main']['humidity'],
                     'rainfall': current_rainfall,
-                    'description': current_data['weather'][0]['description']
+                    'description': current_data['weather'][0]['description'],
+                    'icon': current_data['weather'][0]['icon']
                 },
                 'forecast': forecast_data['list'][:5],  # Next 5 forecast points
                 'prev_rainfall': prev_rainfall
@@ -387,8 +350,11 @@ def predict_water_level(river_name, station_name, month, day, rainfall, prev_rai
         except:
             day_of_year = 1
         
-        # Create a dataframe with the input data (excluding categorical variables for now)
+        # Create a dataframe with the input data
         data = {
+            'River Name': [river_name],
+            'Station Name': [station_name],
+            'Month': [month],
             'Month_num': [month_num],
             'Day': [day],
             'Day_of_year': [day_of_year],
@@ -415,43 +381,18 @@ def predict_water_level(river_name, station_name, month, day, rainfall, prev_rai
         # Create a dataframe
         df = pd.DataFrame(data)
         
-        # Handle categorical variables (River Name and Station Name)
-        # Since our default model doesn't actually use these features, we'll create a simple prediction
-        # In a real model, you would use one-hot encoding or other categorical encoding methods
-        
-        # For demonstration, we'll use a simple mapping of rivers to base water levels
-        river_base_levels = {
-            'Kelani': 3.5,
-            'Kalu': 3.2,
-            'Mahaweli': 4.0,
-            'Gin': 2.8,
-            'Nilwala': 3.0,
-            'Walawe': 2.5
-        }
-        
-        # Get base level for the river (default to 3.0 if river not in mapping)
-        base_level = river_base_levels.get(river_name, 3.0)
-        
-        # Make prediction using the model (which doesn't use categorical variables)
-        # and then adjust based on the river's base level
-        try:
-            model_prediction = float(model.predict(df)[0])
-            # Adjust prediction based on river's base level
-            adjusted_prediction = (model_prediction + base_level) / 2
-        except Exception as e:
-            print(f"Model prediction error: {str(e)}")
-            # Fallback to a simple prediction based on rainfall and river base level
-            adjusted_prediction = base_level + (rainfall * 0.05)
+        # Make prediction
+        prediction = float(model.predict(df)[0])
         
         # Determine risk level
         risk_level = "NORMAL"
-        if adjusted_prediction > 5.0:
+        if prediction > 5.0:
             risk_level = "HIGH"
-        elif adjusted_prediction > 4.0:
+        elif prediction > 4.0:
             risk_level = "MODERATE"
         
         return {
-            "prediction": round(adjusted_prediction, 2),
+            "prediction": round(prediction, 2),
             "risk_level": risk_level
         }
     except Exception as e:
@@ -478,8 +419,8 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 @app.route('/floodP')
 def indexFP():
-    rivers_and_stations = get_rivers_and_stations()
-    station_coordinates = get_station_coordinates()
+    rivers_and_stations = flood_prediction.get_rivers_and_stations(os.path.join(APP_ROOT, 'combined_river_data.csv'))
+    station_coordinates = flood_prediction.get_station_coordinates()
     
     # Get current date
     current_date = datetime.now()
@@ -495,7 +436,7 @@ def indexFP():
 
 @app.route('/api/stations')
 def get_stations():
-    rivers_and_stations = get_rivers_and_stations()
+    rivers_and_stations = flood_prediction.get_rivers_and_stations(os.path.join(APP_ROOT, 'combined_river_data.csv'))
     return jsonify(rivers_and_stations)
 
 @app.route('/api/weather')
@@ -506,7 +447,7 @@ def get_weather():
     if not lat or not lon:
         return jsonify({"error": "Latitude and longitude are required"}), 400
     
-    weather_data = get_weather_data(lat, lon)
+    weather_data = flood_prediction.get_weather_data(lat, lon)
     if weather_data:
         return jsonify(weather_data)
     else:
@@ -530,14 +471,15 @@ def predictFP():
             return jsonify({"error": "Missing required parameters"}), 400
         
         # Make prediction
-        result = predict_water_level(
+        result = flood_prediction.predict_water_level(
             river_name=river_name,
             station_name=station_name,
             month=month,
             day=int(day),
             rainfall=float(rainfall),
             prev_rainfall=[float(r) for r in prev_rainfall],
-            prev_water_levels=[float(w) for w in prev_water_levels]
+            prev_water_levels=[float(w) for w in prev_water_levels],
+            model_path=WATER_LEVEL_MODEL_PATH
         )
         
         return jsonify(result)
@@ -557,7 +499,7 @@ def find_nearest_station():
             return jsonify({"error": "Latitude and longitude are required"}), 400
         
         # Get station coordinates
-        stations_data = get_station_coordinates()
+        stations_data = flood_prediction.get_station_coordinates()
         
         # Find the nearest station
         nearest_river = None
@@ -568,7 +510,7 @@ def find_nearest_station():
         for river, stations in stations_data.items():
             for station, coords in stations.items():
                 station_lat, station_lng = coords
-                distance = haversine_distance(lat, lng, station_lat, station_lng)
+                distance = flood_prediction.haversine_distance(lat, lng, station_lat, station_lng)
                 
                 if distance < min_distance:
                     min_distance = distance
@@ -1095,57 +1037,8 @@ def test_permissions():
 def reset_flood_model():
     """Reset the water level prediction model"""
     try:
-        # Delete the existing model
-        if os.path.exists(WATER_LEVEL_MODEL_PATH):
-            os.remove(WATER_LEVEL_MODEL_PATH)
-            
-        # Create a new model
-        from sklearn.ensemble import RandomForestRegressor
-        
-        # Create a simple model with default parameters
-        default_model = RandomForestRegressor(n_estimators=10, random_state=42)
-        
-        # Create dummy features that match our prediction function
-        # Note: We're excluding categorical variables (River Name, Station Name)
-        feature_names = [
-            'Month_num', 'Day', 'Day_of_year', 'Year (2023) - Rainfall (mm)',
-            'Year (2023) - Rainfall (mm)_lag_1', 'Year (2023) - Water Level (m)_lag_1',
-            'Year (2023) - Rainfall (mm)_lag_2', 'Year (2023) - Water Level (m)_lag_2',
-            'Year (2023) - Rainfall (mm)_lag_3', 'Year (2023) - Water Level (m)_lag_3',
-            'Year (2023) - Rainfall (mm)_lag_4', 'Year (2023) - Water Level (m)_lag_4',
-            'Year (2023) - Rainfall (mm)_lag_5', 'Year (2023) - Water Level (m)_lag_5',
-            'Year (2023) - Rainfall (mm)_roll_mean_3', 'Year (2023) - Rainfall (mm)_roll_std_3',
-            'Year (2023) - Water Level (m)_roll_mean_3', 'Year (2023) - Water Level (m)_roll_std_3',
-            'Year (2023) - Rainfall (mm)_roll_mean_7', 'Year (2023) - Rainfall (mm)_roll_std_7',
-            'Year (2023) - Water Level (m)_roll_mean_7', 'Year (2023) - Water Level (m)_roll_std_7'
-        ]
-        
-        # Generate random data for these features
-        n_samples = 100
-        X_dummy = pd.DataFrame(np.random.rand(n_samples, len(feature_names)), columns=feature_names)
-        
-        # Month_num should be 1-12
-        X_dummy['Month_num'] = np.random.randint(1, 13, size=n_samples)
-        
-        # Day should be 1-31
-        X_dummy['Day'] = np.random.randint(1, 32, size=n_samples)
-        
-        # Day_of_year should be 1-366
-        X_dummy['Day_of_year'] = np.random.randint(1, 367, size=n_samples)
-        
-        # Generate target values (water levels between 2.0 and 6.0)
-        y_dummy = 2.0 + 4.0 * np.random.rand(n_samples)
-        
-        # Train the model
-        default_model.fit(X_dummy, y_dummy)
-        
-        # Save the model
-        joblib.dump(default_model, WATER_LEVEL_MODEL_PATH)
-        
-        return jsonify({
-            "success": True,
-            "message": "Water level prediction model has been reset successfully."
-        })
+        result = flood_prediction.reset_flood_model(WATER_LEVEL_MODEL_PATH)
+        return jsonify(result)
     except Exception as e:
         return jsonify({
             "success": False,
